@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Snack Stock</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#f59e0b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Stock">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@700;800&display=swap" rel="stylesheet">
@@ -84,11 +90,11 @@ button,input,select{font-family:inherit;}
 #nav-bottom{
   position:fixed;bottom:0;left:0;right:0;z-index:100;
   background:var(--card);border-top:1px solid var(--border);
-  display:grid;grid-template-columns:repeat(4,1fr);
+  display:flex;
   height:var(--nav-h);box-shadow:0 -4px 20px rgba(99,102,141,0.08);
 }
 .nav-item{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:3px;cursor:pointer;color:var(--txt2);border:none;background:none;
   font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;
   transition:color 0.15s;padding:6px 4px;position:relative;
@@ -634,6 +640,44 @@ datalist{display:none;}
   #btn-generate-order{bottom:28px;}
   #toast-container   {bottom:28px;}
 }
+
+/* ── AUTH ─────────────────────────────────────── */
+#login-screen{
+  position:fixed;inset:0;background:var(--card);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  padding:28px;z-index:1000;
+}
+#login-screen h1{font-size:1.6rem;font-weight:800;margin-bottom:4px;}
+#login-screen p{color:var(--txt2);margin-bottom:28px;text-align:center;font-size:0.95rem;}
+#login-error{color:var(--danger);font-size:0.85rem;text-align:center;display:none;padding:10px;background:#fef2f2;border-radius:10px;margin-bottom:8px;}
+
+/* User pill in header */
+.header-user{display:flex;align-items:center;gap:8px;cursor:pointer;}
+.user-pill{
+  display:flex;align-items:center;gap:6px;
+  background:var(--surface);border-radius:20px;padding:5px 12px 5px 6px;
+  font-size:0.78rem;font-weight:600;color:var(--txt);border:1px solid var(--border);
+}
+.user-avatar{
+  width:24px;height:24px;border-radius:50%;background:var(--accent);
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.7rem;font-weight:800;color:#fff;flex-shrink:0;
+}
+.user-role-badge{
+  font-size:0.65rem;font-weight:700;padding:1px 6px;border-radius:9999px;
+  background:var(--accent);color:#fff;
+}
+.user-role-badge.employe{background:var(--blue);}
+
+/* Users list */
+.user-card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:8px;
+}
+.user-card-info{flex:1;min-width:0;}
+.user-card-nom{font-size:0.9rem;font-weight:600;color:var(--txt);}
+.user-card-email{font-size:0.78rem;color:var(--txt2);margin-top:2px;}
+.user-card-actions{display:flex;gap:8px;align-items:center;flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -654,6 +698,45 @@ datalist{display:none;}
     </div>
     <p id="setup-error"></p>
     <button class="btn btn-primary btn-full" onclick="saveSetup()">Se connecter</button>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="setup-logo">🍔</div>
+  <h1>Snack Stock</h1>
+  <p id="login-subtitle">Connecte-toi pour accéder à l'application.</p>
+  <div class="setup-form">
+    <div id="login-error"></div>
+    <div class="form-group"><label class="form-label">Email</label>
+      <input id="login-email" class="form-input" type="email" placeholder="ton@email.com" autocomplete="email"></div>
+    <div class="form-group"><label class="form-label">Mot de passe</label>
+      <div class="input-pick-wrap">
+        <input id="login-password" class="form-input" type="password" placeholder="••••••••" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')submitLogin()">
+        <button type="button" class="input-pick-btn" onclick="togglePwd('login-password',this)" tabindex="-1">👁</button>
+      </div></div>
+    <button class="btn btn-primary btn-full" id="btn-login" onclick="submitLogin()">Se connecter</button>
+  </div>
+</div>
+
+<!-- PREMIER COMPTE ADMIN -->
+<div id="first-admin-screen" style="display:none;position:fixed;inset:0;background:var(--card);flex-direction:column;align-items:center;justify-content:center;padding:28px;z-index:1000;">
+  <div class="setup-logo">🔑</div>
+  <h1 style="font-size:1.5rem;font-weight:800;margin-bottom:4px;">Premier lancement</h1>
+  <p style="color:var(--txt2);margin-bottom:24px;text-align:center;font-size:0.9rem;">Crée le compte administrateur pour démarrer.</p>
+  <div class="setup-form">
+    <div id="first-admin-error" style="color:var(--danger);font-size:0.85rem;text-align:center;display:none;padding:10px;background:#fef2f2;border-radius:10px;margin-bottom:8px;"></div>
+    <div class="form-group"><label class="form-label">Ton prénom / nom</label>
+      <input id="fa-nom" class="form-input" type="text" placeholder="Ex : Mohammed"></div>
+    <div class="form-group"><label class="form-label">Email</label>
+      <input id="fa-email" class="form-input" type="email" placeholder="admin@exemple.com"></div>
+    <div class="form-group"><label class="form-label">Mot de passe</label>
+      <div class="input-pick-wrap">
+        <input id="fa-password" class="form-input" type="password" placeholder="Minimum 6 caractères">
+        <button type="button" class="input-pick-btn" onclick="togglePwd('fa-password',this)" tabindex="-1">👁</button>
+      </div></div>
+    <button class="btn btn-primary btn-full" id="btn-create-admin" onclick="createFirstAdmin()">Créer le compte admin</button>
   </div>
 </div>
 
@@ -682,7 +765,13 @@ datalist{display:none;}
       <span class="header-logo">📦</span>
       <span class="header-title" id="header-title">Stock</span>
     </div>
-    <span id="critical-badge" class="header-badge">0</span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span id="critical-badge" class="header-badge">0</span>
+      <div class="user-pill" id="header-user-pill" onclick="showUserMenu()" style="display:none">
+        <div class="user-avatar" id="header-user-avatar">?</div>
+        <span id="header-user-nom">—</span>
+      </div>
+    </div>
   </header>
 
   <!-- Main -->
@@ -846,9 +935,39 @@ datalist{display:none;}
         <div class="settings-title">📊 Export</div>
         <button class="btn btn-secondary btn-sm" onclick="exportCSV()">⬇ Exporter produits (CSV)</button>
       </div>
+      <div class="settings-section" id="section-logs" style="display:none">
+        <div class="settings-title">📋 Historique des modifications</div>
+        <div style="display:flex;gap:8px;margin:10px 0;flex-wrap:wrap">
+          <select id="log-filter-action" class="form-input" style="flex:1;min-width:120px;font-size:0.82rem" onchange="filterLogs()">
+            <option value="">Toutes les actions</option>
+            <option value="stock_update">Stock ±</option>
+            <option value="produit_create">Produit ajouté</option>
+            <option value="produit_update">Produit modifié</option>
+            <option value="produit_delete">Produit supprimé</option>
+            <option value="commande_create">Commande créée</option>
+            <option value="commande_receive">Commande reçue</option>
+            <option value="user_create">Utilisateur créé</option>
+            <option value="user_toggle">Utilisateur activé/désactivé</option>
+          </select>
+          <select id="log-filter-user" class="form-input" style="flex:1;min-width:120px;font-size:0.82rem" onchange="filterLogs()">
+            <option value="">Tous les utilisateurs</option>
+          </select>
+        </div>
+        <div id="logs-list"></div>
+      </div>
+      <div class="settings-section" id="section-users" style="display:none">
+        <div class="settings-title">👥 Utilisateurs</div>
+        <div id="users-list" style="margin-top:8px"></div>
+        <button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="openCreateUserModal()">+ Ajouter un utilisateur</button>
+      </div>
       <div class="settings-section">
         <div class="settings-title">🔧 Connexion Supabase</div>
         <button class="btn btn-danger btn-sm" onclick="resetSetup()">Réinitialiser la connexion</button>
+      </div>
+      <div class="settings-section">
+        <div class="settings-title">🚪 Session</div>
+        <div style="color:var(--txt2);font-size:0.85rem;margin-bottom:10px" id="session-info">Connecté en tant que —</div>
+        <button class="btn btn-outline btn-sm" onclick="logoutUser()">Se déconnecter</button>
       </div>
     </div>
 
@@ -985,9 +1104,40 @@ datalist{display:none;}
       </div>
       <div class="form-group"><label class="form-label">Stock max</label>
         <input id="pf-stock-max" class="form-input" type="number" min="1" value="20"></div>
+      <div class="form-group"><label class="form-label">Qté par commande <span style="color:var(--txt2);font-size:0.78rem;font-weight:400">(si vide = 1 · ex: 4 si 1 commande = 4 unités)</span></label>
+        <input id="pf-qte-commande" class="form-input" type="number" min="1" placeholder="Défaut : 1"></div>
       <div style="display:flex;gap:8px;margin-top:4px">
         <button class="btn btn-primary btn-full" id="btn-save-product" onclick="saveProduct()">Enregistrer</button>
         <button class="btn btn-secondary" onclick="closeAddProductModal()">Annuler</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal créer utilisateur -->
+<div id="create-user-modal" onclick="if(event.target===this)closeCreateUserModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;align-items:flex-end;justify-content:center">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Nouvel utilisateur</div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div id="cu-error" style="color:var(--danger);font-size:0.85rem;display:none;padding:10px;background:#fef2f2;border-radius:10px"></div>
+      <div class="form-group"><label class="form-label">Prénom / Nom *</label>
+        <input id="cu-nom" class="form-input" type="text" placeholder="Ex : Ahmed"></div>
+      <div class="form-group"><label class="form-label">Email *</label>
+        <input id="cu-email" class="form-input" type="email" placeholder="email@exemple.com"></div>
+      <div class="form-group"><label class="form-label">Mot de passe *</label>
+        <div class="input-pick-wrap">
+          <input id="cu-password" class="form-input" type="password" placeholder="Minimum 6 caractères">
+          <button type="button" class="input-pick-btn" onclick="togglePwd('cu-password',this)" tabindex="-1">👁</button>
+        </div></div>
+      <div class="form-group"><label class="form-label">Rôle *</label>
+        <select id="cu-role" class="form-input">
+          <option value="employe">Employé — Stock + Réception</option>
+          <option value="admin">Admin — Accès complet</option>
+        </select></div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-primary btn-full" id="btn-save-user" onclick="saveNewUser()">Créer le compte</button>
+        <button class="btn btn-secondary" onclick="closeCreateUserModal()">Annuler</button>
       </div>
     </div>
   </div>
@@ -1045,6 +1195,7 @@ const STATE = {
   commandesFilter: 'tous',
   search: { stock: '', produits: '', fournisseurs: '', commandes: '' },
   csvRows: [],
+  profile: null,
 };
 
 // === NAVIGATION ===
@@ -1073,6 +1224,8 @@ function _cleanupForms() {
 }
 
 function navigate(view) {
+  const isAdmin = STATE.profile?.role === 'admin';
+  if ((view==='fournisseurs'||view==='parametres') && !isAdmin) return;
   _cleanupForms();
   closeProdPicker();
   if (document.getElementById('confirm-modal').classList.contains('visible')) closeConfirm();
@@ -1086,7 +1239,7 @@ function navigate(view) {
   if (view==='stock')        renderStock();
   if (view==='commandes')    loadCommandes();
   if (view==='fournisseurs') { loadFournisseurs(); loadProduitsAdmin(); loadCategories().then(renderCategories); }
-  if (view==='parametres')   loadConfig();
+  if (view==='parametres')   { loadConfig(); if (isAdmin) { loadUsers(); loadLogs(); } }
 }
 
 function showSubTab(tabId, idx) {
@@ -1212,17 +1365,24 @@ function renderCategoryTabs() {
 
 function setCategory(cat) { STATE.activeCategory=cat; renderStock(); }
 
+async function _log(action, details) {
+  if (!STATE.profile||!sb) return;
+  try { await sb.from('logs').insert({user_id:STATE.profile.id,user_nom:STATE.profile.nom,action,details}); } catch(e) {}
+}
+
 async function updateStock(id, delta) {
   const p = STATE.produits.find(p=>p.id===id);
   if (!p) return;
-  const nv = Math.max(0, p.stock_actuel + delta);
-  if (nv===p.stock_actuel) return;
+  const prev = p.stock_actuel;
+  const nv = Math.max(0, prev + delta);
+  if (nv===prev) return;
   setCardUpdating(id, true);
   try {
     const {error} = await sb.from('produits').update({stock_actuel:nv}).eq('id',id);
     if (error) throw error;
     p.stock_actuel = nv;
     refreshCard(p);
+    _log('stock_update',{produit_id:id,nom:p.nom,de:prev,a:nv,delta});
   } catch(e) { toast('Erreur de connexion, réessaie', 'error'); }
   finally    { setCardUpdating(id, false); }
 }
@@ -1261,25 +1421,47 @@ function refreshCard(p) {
 }
 
 // === REALTIME ===
+let _realtimeSetup = false;
 function setupRealtime() {
+  if (!sb || _realtimeSetup) return;
+  _realtimeSetup = true;
+  try {
+    sb.channel('stock-rt')
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'produits'}, payload => {
+        const upd=payload.new;
+        const idx=STATE.produits.findIndex(p=>p.id===upd.id);
+        if (idx!==-1) {
+          STATE.produits[idx]={...STATE.produits[idx],...upd};
+          refreshCard(STATE.produits[idx]);
+          const card=document.getElementById('card-'+upd.id);
+          if (card) { card.classList.add('flash'); setTimeout(()=>card.classList.remove('flash'),700); }
+        }
+      }).subscribe();
+  } catch(e) {}
+  setInterval(_autoRefresh, 60000);
+  document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible') _autoRefresh(); });
+}
+
+async function _autoRefresh() {
   if (!sb) return;
-  sb.channel('stock-rt')
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'produits'}, payload => {
-      const upd=payload.new;
-      const idx=STATE.produits.findIndex(p=>p.id===upd.id);
-      if (idx!==-1) {
-        STATE.produits[idx]={...STATE.produits[idx],...upd};
-        refreshCard(STATE.produits[idx]);
-        const card=document.getElementById('card-'+upd.id);
-        if (card) { card.classList.add('flash'); setTimeout(()=>card.classList.remove('flash'),700); }
-      }
-    }).subscribe();
+  const modals=['order-prep-modal','add-product-modal','commande-detail','confirm-modal','prod-picker-sheet'];
+  if (modals.some(id=>document.getElementById(id)?.classList.contains('visible'))) return;
+  try {
+    const [pRes,fRes]=await Promise.all([
+      sb.from('produits').select('*,fournisseurs(nom)').eq('actif',true).order('nom'),
+      sb.from('fournisseurs').select('*').order('nom'),
+    ]);
+    if (!pRes.error) STATE.produits=pRes.data||[];
+    if (!fRes.error) STATE.fournisseurs=fRes.data||[];
+    if (STATE.view==='stock') renderStock();
+    if (STATE.view==='commandes') loadCommandes(true);
+  } catch(e) {}
 }
 
 // === VUE COMMANDES ===
-async function loadCommandes() {
+async function loadCommandes(silent=false) {
   const list=document.getElementById('commandes-list');
-  list.innerHTML='<div class="skeleton" style="height:72px;margin-bottom:8px"></div>'.repeat(4);
+  if (!silent) list.innerHTML='<div class="skeleton" style="height:72px;margin-bottom:8px"></div>'.repeat(4);
   try {
     const {data,error}=await sb.from('commandes').select('*').order('date',{ascending:false});
     if (error) throw error;
@@ -1384,7 +1566,7 @@ async function openCommandeDetail(cmdId) {
   try {
     const [{data:cmd,error:e1},{data:lines,error:e2}]=await Promise.all([
       sb.from('commandes').select('*').eq('id',cmdId).single(),
-      sb.from('commande_lignes').select('*,produits(nom,unite,fournisseur_id)').eq('commande_id',cmdId),
+      sb.from('commande_lignes').select('*,produits(nom,unite,fournisseur_id,qte_par_unite_commande)').eq('commande_id',cmdId),
     ]);
     if (e1) throw e1; if (e2) throw e2;
     STATE.currentCommandeStatut=cmd.statut;
@@ -1528,7 +1710,8 @@ async function validerReception(cmdId) {
       if (l._recue>0) {
         const p=STATE.produits.find(p=>p.id===l.produit_id);
         if (p) {
-          const nv=p.stock_actuel+l._recue;
+          const mult=l.produits?.qte_par_unite_commande||1;
+          const nv=p.stock_actuel+(l._recue*mult);
           await sb.from('produits').update({stock_actuel:nv}).eq('id',l.produit_id);
           p.stock_actuel=nv;
         }
@@ -1538,6 +1721,7 @@ async function validerReception(cmdId) {
     await sb.from('commandes').update({statut}).eq('id',cmdId);
     const c=STATE.commandes.find(c=>c.id===cmdId);
     if (c) c.statut=statut;
+    _log('commande_receive',{commande_id:cmdId});
     toast('Réception validée ! Stock mis à jour.','success');
     closeCommandeDetail();
     navigate('stock');
@@ -1615,15 +1799,19 @@ async function openPrepModal(fournisseurId, force = false) {
 
   // Produits de ce fournisseur sous seuil → quantité à commander = stock_max - stock_actuel
   const toOrder = STATE.produits.filter(p => p.actif && p.fournisseur_id === fournisseurId && p.stock_actuel <= p.stock_critique);
-  STATE.prepLines = toOrder.map(p => ({
-    produit_id: p.id,
-    nom: p.nom,
-    unite: p.unite,
-    stock_actuel: p.stock_actuel,
-    stock_max: p.stock_max,
-    stock_critique: p.stock_critique,
-    qty: Math.max(1, p.stock_max - p.stock_actuel),
-  }));
+  STATE.prepLines = toOrder.map(p => {
+    const mult = p.qte_par_unite_commande || 1;
+    return {
+      produit_id: p.id,
+      nom: p.nom,
+      unite: p.unite,
+      stock_actuel: p.stock_actuel,
+      stock_max: p.stock_max,
+      stock_critique: p.stock_critique,
+      qte_par_unite_commande: mult,
+      qty: Math.max(1, Math.ceil((p.stock_max - p.stock_actuel) / mult)),
+    };
+  });
 
   document.getElementById('prep-title').textContent = `Commande — ${f.nom}`;
   document.getElementById('prep-subtitle').textContent = f.contact ? `Contact : ${f.contact}` : '';
@@ -1643,8 +1831,8 @@ function renderPrepBody() {
   body.innerHTML = STATE.prepLines.map((l, i) => `
     <div class="prep-line" id="prepline-${i}">
       <div class="prep-line-info">
-        <div class="prep-line-name">${esc(l.nom)} <span style="color:var(--txt2);font-weight:400">— ${esc(l.unite)}</span></div>
-        <div class="prep-line-stock">Stock actuel : <strong>${l.stock_actuel}</strong> / ${l.stock_max}</div>
+        <div class="prep-line-name">${esc(l.nom)} <span style="color:var(--txt2);font-weight:400">— ${esc(l.unite)}</span>${l.qte_par_unite_commande>1?` <span style="color:var(--accent);font-size:0.75rem;font-weight:600">×${l.qte_par_unite_commande}</span>`:''}</div>
+        <div class="prep-line-stock">Stock actuel : <strong>${l.stock_actuel}</strong> / ${l.stock_max}${l.qte_par_unite_commande>1?` · 1 cmd = ${l.qte_par_unite_commande} ${l.unite}`:''}</div>
       </div>
       <div class="prep-qty-row">
         <button class="btn-qty-sm" onclick="adjPrepQty(${i},-1)">−</button>
@@ -1741,14 +1929,14 @@ function openPrepAddProduct() {
     items: available.map(p => ({
       value:      p.id,
       label:      p.nom,
-      defaultQty: Math.max(1, p.stock_max - p.stock_actuel),
-      sub:        `Stock : ${p.stock_actuel} / ${p.stock_max} ${p.unite}${p.stock_actuel <= p.stock_critique ? ' · Stock bas' : ''}`,
+      defaultQty: Math.max(1, Math.ceil((p.stock_max - p.stock_actuel) / (p.qte_par_unite_commande || 1))),
+      sub:        `Stock : ${p.stock_actuel} / ${p.stock_max} ${p.unite}${p.qte_par_unite_commande>1?` · ×${p.qte_par_unite_commande}`:''}${p.stock_actuel <= p.stock_critique ? ' · Stock bas' : ''}`,
       subLow:     p.stock_actuel <= p.stock_critique
     })),
     onConfirm: (val, label, qty) => {
       const p = STATE.produits.find(p => p.id === val);
       if (!p) return;
-      STATE.prepLines.push({ produit_id:p.id, nom:p.nom, unite:p.unite, stock_actuel:p.stock_actuel, stock_max:p.stock_max, qty });
+      STATE.prepLines.push({ produit_id:p.id, nom:p.nom, unite:p.unite, stock_actuel:p.stock_actuel, stock_max:p.stock_max, qte_par_unite_commande:p.qte_par_unite_commande||1, qty });
       renderPrepBody();
     }
   });
@@ -1829,6 +2017,8 @@ async function createOrderFromPrep() {
     if (e2) throw e2;
 
     STATE.commandes.unshift(cmd);
+    const f=STATE.fournisseurs.find(f=>f.id===STATE.prepFournisseurId);
+    _log('commande_create',{commande_id:cmd.id,fournisseur:f?.nom||''});
     toast('Commande créée !', 'success');
     closePrepModal();
   } catch(e) {
@@ -2085,6 +2275,7 @@ function openAddProductModal() {
   document.getElementById('pf-stock-actuel').value='0';
   document.getElementById('pf-stock-critique').value='5';
   document.getElementById('pf-stock-max').value='20';
+  document.getElementById('pf-qte-commande').value='';
   fillFournisseurSelect(''); fillCategoryDatalist();
   document.getElementById('add-product-modal').classList.add('visible');
   setTimeout(()=>document.getElementById('pf-nom').focus(),100);
@@ -2101,6 +2292,7 @@ function openEditProductModal(id) {
   document.getElementById('pf-stock-actuel').value=p.stock_actuel;
   document.getElementById('pf-stock-critique').value=p.stock_critique;
   document.getElementById('pf-stock-max').value=p.stock_max;
+  document.getElementById('pf-qte-commande').value=p.qte_par_unite_commande>1?p.qte_par_unite_commande:'';
   fillFournisseurSelect(p.fournisseur_id||''); fillCategoryDatalist();
   document.getElementById('add-product-modal').classList.add('visible');
 }
@@ -2235,13 +2427,14 @@ async function saveProduct() {
   const stock_actuel  =Math.max(0,parseInt(document.getElementById('pf-stock-actuel').value)||0);
   const stock_critique=parseInt(document.getElementById('pf-stock-critique').value)||5;
   const stock_max     =parseInt(document.getElementById('pf-stock-max').value)||20;
+  const qte_par_unite_commande=parseInt(document.getElementById('pf-qte-commande').value)||null;
   if (!nom)      { toast('Le nom est obligatoire','error'); return; }
   if (!categorie){ toast('La catégorie est obligatoire','error'); return; }
   if (!unite)    { toast("L'unité est obligatoire",'error'); return; }
   if (stock_critique>=stock_max) { toast('Stock critique doit être < stock max','error'); return; }
   const btn=document.getElementById('btn-save-product');
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
-  const payload={nom,categorie,unite,fournisseur_id,stock_actuel,stock_critique,stock_max};
+  const payload={nom,categorie,unite,fournisseur_id,stock_actuel,stock_critique,stock_max,qte_par_unite_commande};
   try {
     if (id) {
       const {error}=await sb.from('produits').update(payload).eq('id',id);
@@ -2251,6 +2444,7 @@ async function saveProduct() {
       if (error) throw error;
     }
     toast(id?'Produit mis à jour':'Produit ajouté','success');
+    _log(id?'produit_update':'produit_create',{produit_id:id||null,nom});
     closeAddProductModal();
     await loadProduitsAdmin();
   } catch(e) { toast('Erreur : '+e.message,'error'); }
@@ -2259,14 +2453,15 @@ async function saveProduct() {
 
 function deleteProduct(id) {
   const p=STATE.produits.find(p=>p.id===id);
-  showConfirm({ title:`Archiver "${p?.nom||'ce produit'}" ?`, msg:'Le produit sera masqué du stock. Il peut être réactivé depuis la base de données.', icon:'📦', confirmLabel:'Archiver', confirmClass:'btn-danger', onConfirm: async () => {
+  showConfirm({ title:`Supprimer "${p?.nom||'ce produit'}" ?`, msg:'Le produit sera définitivement supprimé. Cette action est irréversible.', icon:'🗑', confirmLabel:'Supprimer', confirmClass:'btn-danger', onConfirm: async () => {
     try {
-      const {error}=await sb.from('produits').update({actif:false}).eq('id',id);
+      const {error}=await sb.from('produits').delete().eq('id',id);
       if (error) throw error;
-      if (p) p.actif=false;
+      STATE.produits=STATE.produits.filter(pr=>pr.id!==id);
       renderProduitsAdmin(); if(STATE.view==='stock') renderStock();
-      toast('Produit archivé','success');
-    } catch(e) { toast('Erreur suppression','error'); }
+      _log('produit_delete',{produit_id:id,nom:p?.nom});
+      toast('Produit supprimé','success');
+    } catch(e) { toast('Erreur : '+e.message,'error'); }
   }});
 }
 
@@ -2675,13 +2870,267 @@ function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// === INITIALISATION ===
-async function init() {
-  if (!sbUrl||!sbAnonKey||!initSupabase()) {
-    document.getElementById('loading-screen').style.display='none';
-    document.getElementById('setup-screen').style.display='flex';
+// === AUTHENTIFICATION ===
+function togglePwd(id, btn) {
+  const inp = document.getElementById(id);
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  btn.textContent = show ? '🙈' : '👁';
+}
+
+async function submitLogin() {
+  const email=document.getElementById('login-email').value.trim();
+  const password=document.getElementById('login-password').value;
+  const err=document.getElementById('login-error');
+  const btn=document.getElementById('btn-login');
+  err.style.display='none';
+  if (!email||!password){err.style.display='block';err.textContent='Email et mot de passe requis.';return;}
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>';
+  try {
+    const {data,error}=await sb.auth.signInWithPassword({email,password});
+    if (error) throw error;
+    await _afterLogin(data.user);
+  } catch(e) {
+    err.style.display='block';
+    err.textContent=e.message.includes('Invalid login')?'Email ou mot de passe incorrect.':e.message;
+    btn.disabled=false;btn.textContent='Se connecter';
+  }
+}
+
+async function createFirstAdmin() {
+  const nom=document.getElementById('fa-nom').value.trim();
+  const email=document.getElementById('fa-email').value.trim();
+  const password=document.getElementById('fa-password').value;
+  const err=document.getElementById('first-admin-error');
+  const btn=document.getElementById('btn-create-admin');
+  err.style.display='none';
+  if (!nom||!email||!password){err.style.display='block';err.textContent='Tous les champs sont requis.';return;}
+  if (password.length<6){err.style.display='block';err.textContent='Mot de passe : 6 caractères minimum.';return;}
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>';
+  try {
+    const {data,error}=await sb.auth.signUp({email,password});
+    if (error) throw error;
+    const userId=data.user?.id;
+    if (!userId) throw new Error('Impossible de créer le compte');
+    const {error:e2}=await sb.from('profiles').insert({id:userId,nom,role:'admin',actif:true});
+    if (e2) throw e2;
+    const {data:d2,error:e3}=await sb.auth.signInWithPassword({email,password});
+    if (e3) throw e3;
+    await _afterLogin(d2.user);
+  } catch(e) {
+    err.style.display='block';err.textContent=e.message;
+    btn.disabled=false;btn.textContent='Créer le compte admin';
+  }
+}
+
+async function _afterLogin(user) {
+  if (!user) return;
+  const {data:profile}=await sb.from('profiles').select('*').eq('id',user.id).maybeSingle();
+  if (!profile||!profile.actif) {
+    await sb.auth.signOut();
+    const err=document.getElementById('login-error');
+    err.style.display='block';
+    err.textContent=!profile?'Compte non configuré. Contacte l\'administrateur.':'Ce compte est désactivé.';
+    const btn=document.getElementById('btn-login');
+    if(btn){btn.disabled=false;btn.textContent='Se connecter';}
     return;
   }
+  STATE.profile={...profile,email:user.email};
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('first-admin-screen').style.display='none';
+  await _loadApp();
+}
+
+async function logoutUser() {
+  await sb.auth.signOut();
+  STATE.profile=null;
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('login-email').value='';
+  document.getElementById('login-password').value='';
+  document.getElementById('login-error').style.display='none';
+}
+
+function applyRoleUI(role) {
+  const isAdmin=role==='admin';
+  ['fournisseurs','parametres'].forEach(v=>{
+    document.querySelectorAll(`[data-view="${v}"]`).forEach(el=>el.style.display=isAdmin?'':'none');
+  });
+  const sectUsers=document.getElementById('section-users');
+  if (sectUsers) sectUsers.style.display=isAdmin?'':'none';
+  const sectLogs=document.getElementById('section-logs');
+  if (sectLogs) sectLogs.style.display=isAdmin?'':'none';
+  const pill=document.getElementById('header-user-pill');
+  if (pill&&STATE.profile){
+    pill.style.display='flex';
+    document.getElementById('header-user-nom').textContent=STATE.profile.nom;
+    document.getElementById('header-user-avatar').textContent=(STATE.profile.nom[0]||'?').toUpperCase();
+  }
+  const si=document.getElementById('session-info');
+  if (si&&STATE.profile) si.textContent=`Connecté en tant que ${STATE.profile.nom} (${isAdmin?'admin':'employé'})`;
+}
+
+function showUserMenu() {
+  if (!STATE.profile) return;
+  showConfirm({
+    title:STATE.profile.nom,
+    msg:`Rôle : ${STATE.profile.role==='admin'?'Administrateur':'Employé'}\n${STATE.profile.email||''}`,
+    icon:'👤',confirmLabel:'Se déconnecter',confirmClass:'btn-danger',
+    onConfirm:()=>logoutUser(),
+  });
+}
+
+// === GESTION UTILISATEURS ===
+async function loadUsers() {
+  const list=document.getElementById('users-list');
+  if (!list) return;
+  list.innerHTML='<div class="skeleton" style="height:56px;margin-bottom:8px"></div>'.repeat(3);
+  try {
+    const {data,error}=await sb.from('profiles').select('*').order('nom');
+    if (error) throw error;
+    renderUsers(data||[]);
+  } catch(e){list.innerHTML=`<div style="color:var(--danger);font-size:0.85rem">${e.message}</div>`;}
+}
+
+function renderUsers(users) {
+  const list=document.getElementById('users-list');
+  if (!users.length){list.innerHTML='<div style="color:var(--txt2);font-size:0.85rem">Aucun utilisateur.</div>';return;}
+  list.innerHTML=users.map(u=>{
+    const isSelf=u.id===STATE.profile?.id;
+    return `<div class="user-card">
+      <div class="user-avatar" style="width:36px;height:36px;font-size:0.9rem">${(u.nom[0]||'?').toUpperCase()}</div>
+      <div class="user-card-info">
+        <div class="user-card-nom">${esc(u.nom)}${isSelf?' <span style="color:var(--txt2);font-size:0.75rem">(vous)</span>':''}</div>
+        <div class="user-card-email" style="margin-top:3px">
+          <span class="user-role-badge${u.role==='employe'?' employe':''}">${u.role==='admin'?'Admin':'Employé'}</span>
+          ${!u.actif?'<span style="color:var(--danger);font-size:0.75rem;margin-left:6px">Désactivé</span>':''}
+        </div>
+      </div>
+      <div class="user-card-actions">
+        ${isSelf?'':u.actif
+          ?`<button class="btn btn-danger btn-sm" onclick="toggleUserActif('${u.id}',false)">Désactiver</button>`
+          :`<button class="btn btn-secondary btn-sm" onclick="toggleUserActif('${u.id}',true)">Activer</button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleUserActif(id,actif) {
+  try {
+    const {error}=await sb.from('profiles').update({actif}).eq('id',id);
+    if (error) throw error;
+    const u=await sb.from('profiles').select('nom').eq('id',id).maybeSingle();
+    _log('user_toggle',{user_id:id,nom:u?.data?.nom||'',actif});
+    toast(actif?'Compte activé':'Compte désactivé','success');
+    loadUsers();
+  } catch(e){toast('Erreur : '+e.message,'error');}
+}
+
+let _allLogs = [];
+async function loadLogs() {
+  const list = document.getElementById('logs-list');
+  if (!list) return;
+  list.innerHTML = '<div class="skeleton" style="height:44px;margin-bottom:6px"></div>'.repeat(5);
+  try {
+    // Nettoyage des logs > 90 jours
+    const cutoff = new Date(Date.now() - 90*24*60*60*1000).toISOString();
+    await sb.from('logs').delete().lt('created_at', cutoff);
+    const {data,error} = await sb.from('logs').select('*').order('created_at',{ascending:false}).limit(200);
+    if (error) throw error;
+    _allLogs = data || [];
+    // Remplir filtre utilisateurs
+    const users = [...new Set(_allLogs.map(l=>l.user_nom).filter(Boolean))];
+    const sel = document.getElementById('log-filter-user');
+    if (sel) {
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">Tous les utilisateurs</option>' +
+        users.map(u=>`<option value="${esc(u)}"${u===cur?' selected':''}>${esc(u)}</option>`).join('');
+    }
+    filterLogs();
+  } catch(e) { list.innerHTML=`<div style="color:var(--danger);font-size:0.85rem">${e.message}</div>`; }
+}
+
+function filterLogs() {
+  const action = document.getElementById('log-filter-action')?.value || '';
+  const user   = document.getElementById('log-filter-user')?.value   || '';
+  const filtered = _allLogs.filter(l =>
+    (!action || l.action === action) && (!user || l.user_nom === user)
+  );
+  renderLogs(filtered);
+}
+
+const LOG_LABELS = {
+  stock_update:    (d) => `Stock ${d?.nom||''} : ${d?.de??'?'} → ${d?.a??'?'}`,
+  produit_create:  (d) => `Produit ajouté : ${d?.nom||''}`,
+  produit_update:  (d) => `Produit modifié : ${d?.nom||''}`,
+  produit_delete:  (d) => `Produit supprimé : ${d?.nom||''}`,
+  commande_create: (d) => `Commande créée${d?.fournisseur?' — '+d.fournisseur:''}`,
+  commande_receive:(d) => `Commande reçue`,
+  user_create:     (d) => `Compte créé : ${d?.nom||''} (${d?.role||''})`,
+  user_toggle:     (d) => `Compte ${d?.actif?'activé':'désactivé'} : ${d?.nom||''}`,
+};
+
+function renderLogs(logs) {
+  const list = document.getElementById('logs-list');
+  if (!logs.length) { list.innerHTML='<div style="color:var(--txt2);font-size:0.85rem;padding:8px 0">Aucun historique.</div>'; return; }
+  list.innerHTML = logs.map(l => {
+    const fn = LOG_LABELS[l.action] || (() => l.action);
+    const label = fn(l.details||{});
+    const dt = new Date(l.created_at);
+    const dateStr = dt.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const timeStr = dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.85rem;font-weight:600;color:var(--txt)">${esc(label)}</div>
+        <div style="font-size:0.75rem;color:var(--txt2);margin-top:2px">${esc(l.user_nom||'—')} · ${dateStr} ${timeStr}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openCreateUserModal() {
+  const m=document.getElementById('create-user-modal');
+  m.style.display='flex';
+  ['cu-nom','cu-email','cu-password'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('cu-role').value='employe';
+  document.getElementById('cu-error').style.display='none';
+}
+
+function closeCreateUserModal() {
+  document.getElementById('create-user-modal').style.display='none';
+}
+
+async function saveNewUser() {
+  const nom=document.getElementById('cu-nom').value.trim();
+  const email=document.getElementById('cu-email').value.trim();
+  const password=document.getElementById('cu-password').value;
+  const role=document.getElementById('cu-role').value;
+  const err=document.getElementById('cu-error');
+  const btn=document.getElementById('btn-save-user');
+  err.style.display='none';
+  if (!nom||!email||!password){err.style.display='block';err.textContent='Tous les champs sont requis.';return;}
+  if (password.length<6){err.style.display='block';err.textContent='Mot de passe : 6 caractères minimum.';return;}
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>';
+  try {
+    const sbTemp=supabase.createClient(sbUrl,sbAnonKey,{auth:{persistSession:false}});
+    const {data,error}=await sbTemp.auth.signUp({email,password});
+    if (error) throw error;
+    const userId=data.user?.id;
+    if (!userId) throw new Error("Impossible de récupérer l'identifiant");
+    const {error:e2}=await sb.from('profiles').insert({id:userId,nom,role,actif:true});
+    if (e2) throw e2;
+    _log('user_create',{nom,role});
+    toast(`Compte créé pour ${nom}`,'success');
+    closeCreateUserModal();
+    loadUsers();
+  } catch(e) {
+    err.style.display='block';
+    err.textContent=e.message.includes('already registered')?'Cet email est déjà utilisé.':e.message;
+  } finally{btn.disabled=false;btn.textContent='Créer le compte';}
+}
+
+// === INITIALISATION ===
+async function _loadApp() {
   try {
     const [pRes,fRes]=await Promise.all([
       sb.from('produits').select('*,fournisseurs(nom)').eq('actif',true).order('nom'),
@@ -2693,30 +3142,59 @@ async function init() {
     STATE.fournisseurs=fRes.data||[];
     document.getElementById('loading-screen').style.display='none';
     document.getElementById('app').style.display='flex';
+    applyRoleUI(STATE.profile.role);
     renderStock();
-    setupRealtime();
   } catch(e) {
     document.getElementById('loading-screen').style.display='none';
     const isTableMissing=e.message&&e.message.toLowerCase().includes('schema cache');
     if (isTableMissing) {
       document.getElementById('app').style.display='flex';
-      document.getElementById('products-grid').innerHTML=`
-        <div class="empty-state" style="grid-column:1/-1">
-          <span class="empty-icon">⚠️</span>
-          <div class="empty-title">Tables introuvables</div>
-          <div class="empty-desc">Exécute <code>schema.sql</code> dans Supabase → Database → SQL Editor, puis recharge la page.</div>
-        </div>`;
+      document.getElementById('products-grid').innerHTML=`<div class="empty-state" style="grid-column:1/-1"><span class="empty-icon">⚠️</span><div class="empty-title">Tables introuvables</div><div class="empty-desc">Exécute <code>schema.sql</code> dans Supabase → Database → SQL Editor, puis recharge la page.</div></div>`;
     } else {
       document.getElementById('setup-screen').style.display='flex';
       const err=document.getElementById('setup-error');
-      err.style.display='block'; err.textContent=e.message||'Connexion impossible.';
-      if (sbUrl)     document.getElementById('setup-url').value=sbUrl;
+      err.style.display='block';err.textContent=e.message||'Connexion impossible.';
+      if (sbUrl) document.getElementById('setup-url').value=sbUrl;
       if (sbAnonKey) document.getElementById('setup-key').value=sbAnonKey;
+      return;
     }
   }
+  setupRealtime();
+}
+
+async function init() {
+  if (!sbUrl||!sbAnonKey||!initSupabase()) {
+    document.getElementById('loading-screen').style.display='none';
+    document.getElementById('setup-screen').style.display='flex';
+    return;
+  }
+  const {data:{session}}=await sb.auth.getSession();
+  if (!session) {
+    const {data:profiles}=await sb.from('profiles').select('id').limit(1);
+    document.getElementById('loading-screen').style.display='none';
+    if (!profiles||profiles.length===0) {
+      document.getElementById('first-admin-screen').style.display='flex';
+    } else {
+      document.getElementById('login-screen').style.display='flex';
+    }
+    return;
+  }
+  const {data:profile}=await sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
+  if (!profile||!profile.actif) {
+    await sb.auth.signOut();
+    document.getElementById('loading-screen').style.display='none';
+    document.getElementById('login-screen').style.display='flex';
+    return;
+  }
+  STATE.profile={...profile,email:session.user.email};
+  await _loadApp();
 }
 
 init();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+}
 </script>
 </body>
 </html>
