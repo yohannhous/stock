@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Stock">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icône-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@700;800&display=swap" rel="stylesheet">
@@ -935,26 +935,7 @@ datalist{display:none;}
         <div class="settings-title">📊 Export</div>
         <button class="btn btn-secondary btn-sm" onclick="exportCSV()">⬇ Exporter produits (CSV)</button>
       </div>
-      <div class="settings-section" id="section-logs" style="display:none">
-        <div class="settings-title">📋 Historique des modifications</div>
-        <div style="display:flex;gap:8px;margin:10px 0;flex-wrap:wrap">
-          <select id="log-filter-action" class="form-input" style="flex:1;min-width:120px;font-size:0.82rem" onchange="filterLogs()">
-            <option value="">Toutes les actions</option>
-            <option value="stock_update">Stock ±</option>
-            <option value="produit_create">Produit ajouté</option>
-            <option value="produit_update">Produit modifié</option>
-            <option value="produit_delete">Produit supprimé</option>
-            <option value="commande_create">Commande créée</option>
-            <option value="commande_receive">Commande reçue</option>
-            <option value="user_create">Utilisateur créé</option>
-            <option value="user_toggle">Utilisateur activé/désactivé</option>
-          </select>
-          <select id="log-filter-user" class="form-input" style="flex:1;min-width:120px;font-size:0.82rem" onchange="filterLogs()">
-            <option value="">Tous les utilisateurs</option>
-          </select>
-        </div>
-        <div id="logs-list"></div>
-      </div>
+
       <div class="settings-section" id="section-users" style="display:none">
         <div class="settings-title">👥 Utilisateurs</div>
         <div id="users-list" style="margin-top:8px"></div>
@@ -1239,7 +1220,7 @@ function navigate(view) {
   if (view==='stock')        renderStock();
   if (view==='commandes')    loadCommandes();
   if (view==='fournisseurs') { loadFournisseurs(); loadProduitsAdmin(); loadCategories().then(renderCategories); }
-  if (view==='parametres')   { loadConfig(); if (isAdmin) { loadUsers(); loadLogs(); } }
+  if (view==='parametres')   { loadConfig(); if (isAdmin) { loadUsers(); } }
 }
 
 function showSubTab(tabId, idx) {
@@ -2958,8 +2939,6 @@ function applyRoleUI(role) {
   });
   const sectUsers=document.getElementById('section-users');
   if (sectUsers) sectUsers.style.display=isAdmin?'':'none';
-  const sectLogs=document.getElementById('section-logs');
-  if (sectLogs) sectLogs.style.display=isAdmin?'':'none';
   const pill=document.getElementById('header-user-pill');
   if (pill&&STATE.profile){
     pill.style.display='flex';
@@ -2993,10 +2972,13 @@ async function loadUsers() {
 }
 
 function renderUsers(users) {
+  _users = users;
   const list=document.getElementById('users-list');
   if (!users.length){list.innerHTML='<div style="color:var(--txt2);font-size:0.85rem">Aucun utilisateur.</div>';return;}
   list.innerHTML=users.map(u=>{
     const isSelf=u.id===STATE.profile?.id;
+    const roleTarget=u.role==='admin'?'employe':'admin';
+    const roleLabel=u.role==='admin'?'→ Employé':'→ Admin';
     return `<div class="user-card">
       <div class="user-avatar" style="width:36px;height:36px;font-size:0.9rem">${(u.nom[0]||'?').toUpperCase()}</div>
       <div class="user-card-info">
@@ -3006,10 +2988,16 @@ function renderUsers(users) {
           ${!u.actif?'<span style="color:var(--danger);font-size:0.75rem;margin-left:6px">Désactivé</span>':''}
         </div>
       </div>
-      <div class="user-card-actions">
-        ${isSelf?'':u.actif
-          ?`<button class="btn btn-danger btn-sm" onclick="toggleUserActif('${u.id}',false)">Désactiver</button>`
-          :`<button class="btn btn-secondary btn-sm" onclick="toggleUserActif('${u.id}',true)">Activer</button>`}
+      <div class="user-card-actions" style="flex-direction:column;align-items:flex-end;gap:6px">
+        ${isSelf?'':`
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+            <button class="btn btn-outline btn-sm" onclick="changeUserRole('${u.id}','${roleTarget}')">${roleLabel}</button>
+            ${u.actif
+              ?`<button class="btn btn-secondary btn-sm" onclick="toggleUserActif('${u.id}',false)">Désactiver</button>`
+              :`<button class="btn btn-ok btn-sm" onclick="toggleUserActif('${u.id}',true)">Activer</button>`}
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')" style="font-size:0.8rem">🗑 Supprimer</button>
+        `}
       </div>
     </div>`;
   }).join('');
@@ -3019,74 +3007,44 @@ async function toggleUserActif(id,actif) {
   try {
     const {error}=await sb.from('profiles').update({actif}).eq('id',id);
     if (error) throw error;
-    const u=await sb.from('profiles').select('nom').eq('id',id).maybeSingle();
-    _log('user_toggle',{user_id:id,nom:u?.data?.nom||'',actif});
+    const u=_users.find(u=>u.id===id);
+    _log('user_toggle',{user_id:id,nom:u?.nom||'',actif});
     toast(actif?'Compte activé':'Compte désactivé','success');
     loadUsers();
   } catch(e){toast('Erreur : '+e.message,'error');}
 }
 
-let _allLogs = [];
-async function loadLogs() {
-  const list = document.getElementById('logs-list');
-  if (!list) return;
-  list.innerHTML = '<div class="skeleton" style="height:44px;margin-bottom:6px"></div>'.repeat(5);
+async function changeUserRole(id, newRole) {
   try {
-    // Nettoyage des logs > 90 jours
-    const cutoff = new Date(Date.now() - 90*24*60*60*1000).toISOString();
-    await sb.from('logs').delete().lt('created_at', cutoff);
-    const {data,error} = await sb.from('logs').select('*').order('created_at',{ascending:false}).limit(200);
+    const {error}=await sb.from('profiles').update({role:newRole}).eq('id',id);
     if (error) throw error;
-    _allLogs = data || [];
-    // Remplir filtre utilisateurs
-    const users = [...new Set(_allLogs.map(l=>l.user_nom).filter(Boolean))];
-    const sel = document.getElementById('log-filter-user');
-    if (sel) {
-      const cur = sel.value;
-      sel.innerHTML = '<option value="">Tous les utilisateurs</option>' +
-        users.map(u=>`<option value="${esc(u)}"${u===cur?' selected':''}>${esc(u)}</option>`).join('');
+    const u=_users.find(u=>u.id===id);
+    _log('user_role_change',{user_id:id,nom:u?.nom||'',role:newRole});
+    toast(`Rôle mis à jour : ${newRole==='admin'?'Admin':'Employé'}`,'success');
+    loadUsers();
+  } catch(e){toast('Erreur : '+e.message,'error');}
+}
+
+function deleteUser(id) {
+  const u=_users.find(u=>u.id===id);
+  const nom=u?.nom||'cet utilisateur';
+  showConfirm({
+    title:'Supprimer ce compte ?',
+    msg:`Le compte de ${nom} sera définitivement supprimé. Cette action est irréversible.`,
+    icon:'🗑',confirmLabel:'Supprimer',confirmClass:'btn-danger',
+    onConfirm:async()=>{
+      try {
+        const {error}=await sb.from('profiles').delete().eq('id',id);
+        if (error) throw error;
+        _log('user_delete',{user_id:id,nom});
+        toast(`Compte de ${nom} supprimé`,'success');
+        loadUsers();
+      } catch(e){toast('Erreur : '+e.message,'error');}
     }
-    filterLogs();
-  } catch(e) { list.innerHTML=`<div style="color:var(--danger);font-size:0.85rem">${e.message}</div>`; }
+  });
 }
 
-function filterLogs() {
-  const action = document.getElementById('log-filter-action')?.value || '';
-  const user   = document.getElementById('log-filter-user')?.value   || '';
-  const filtered = _allLogs.filter(l =>
-    (!action || l.action === action) && (!user || l.user_nom === user)
-  );
-  renderLogs(filtered);
-}
-
-const LOG_LABELS = {
-  stock_update:    (d) => `Stock ${d?.nom||''} : ${d?.de??'?'} → ${d?.a??'?'}`,
-  produit_create:  (d) => `Produit ajouté : ${d?.nom||''}`,
-  produit_update:  (d) => `Produit modifié : ${d?.nom||''}`,
-  produit_delete:  (d) => `Produit supprimé : ${d?.nom||''}`,
-  commande_create: (d) => `Commande créée${d?.fournisseur?' — '+d.fournisseur:''}`,
-  commande_receive:(d) => `Commande reçue`,
-  user_create:     (d) => `Compte créé : ${d?.nom||''} (${d?.role||''})`,
-  user_toggle:     (d) => `Compte ${d?.actif?'activé':'désactivé'} : ${d?.nom||''}`,
-};
-
-function renderLogs(logs) {
-  const list = document.getElementById('logs-list');
-  if (!logs.length) { list.innerHTML='<div style="color:var(--txt2);font-size:0.85rem;padding:8px 0">Aucun historique.</div>'; return; }
-  list.innerHTML = logs.map(l => {
-    const fn = LOG_LABELS[l.action] || (() => l.action);
-    const label = fn(l.details||{});
-    const dt = new Date(l.created_at);
-    const dateStr = dt.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
-    const timeStr = dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:0.85rem;font-weight:600;color:var(--txt)">${esc(label)}</div>
-        <div style="font-size:0.75rem;color:var(--txt2);margin-top:2px">${esc(l.user_nom||'—')} · ${dateStr} ${timeStr}</div>
-      </div>
-    </div>`;
-  }).join('');
-}
+let _users = [];
 
 function openCreateUserModal() {
   const m=document.getElementById('create-user-modal');
