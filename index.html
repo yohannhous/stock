@@ -1550,7 +1550,6 @@ async function _autoRefresh() {
     if (!fRes.error) STATE.fournisseurs=fRes.data||[];
     if (STATE.view==='stock') renderStock();
     if (STATE.view==='commandes') loadCommandes(true);
-    if (STATE.view==='fournisseurs') { loadFournisseurs(); loadProduitsAdmin(); }
   } catch(e) {}
 }
 
@@ -2739,22 +2738,27 @@ function _initCropDrag() {
       _cropBox.y = Math.max(0, Math.min(ih - bs, by + dy));
     } else {
       let ns = bs, nx = bx, ny = by;
-      const d = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
+      // d positif = agrandir, d négatif = rétrécir
+      // chaque coin a sa propre direction "sortante"
+      let d;
+      if      (_cropDrag.type === 'br') d = Math.max(dx, dy);   // droite ou bas = agrandir
+      else if (_cropDrag.type === 'tl') d = Math.max(-dx, -dy); // gauche ou haut = agrandir
+      else if (_cropDrag.type === 'tr') d = Math.max(dx, -dy);  // droite ou haut = agrandir
+      else                              d = Math.max(-dx, dy);   // bl: gauche ou bas = agrandir
+
       if (_cropDrag.type === 'br') {
         ns = Math.max(MIN, Math.min(bs + d, iw - bx, ih - by));
-      } else if (_cropDrag.type === 'bl') {
-        ns = Math.max(MIN, bs - d);
-        nx = bx + bs - ns; if (nx < 0) { ns += nx; nx = 0; }
-        ns = Math.min(ns, ih - by);
-      } else if (_cropDrag.type === 'tr') {
-        ns = Math.max(MIN, bs + d);
-        ny = by + bs - ns; if (ny < 0) { ns += ny; ny = 0; }
-        ns = Math.min(ns, iw - bx);
       } else if (_cropDrag.type === 'tl') {
-        ns = Math.max(MIN, bs - d);
+        ns = Math.max(MIN, Math.min(bs + d, bx + bs, by + bs));
         nx = bx + bs - ns; ny = by + bs - ns;
         if (nx < 0) { ns += nx; nx = 0; ny = by + bs - ns; }
         if (ny < 0) { ns += ny; ny = 0; nx = bx + bs - ns; }
+      } else if (_cropDrag.type === 'tr') {
+        ns = Math.max(MIN, Math.min(bs + d, iw - bx, by + bs));
+        ny = by + bs - ns; if (ny < 0) { ns += ny; ny = 0; }
+      } else { // bl
+        ns = Math.max(MIN, Math.min(bs + d, bx + bs, ih - by));
+        nx = bx + bs - ns; if (nx < 0) { ns += nx; nx = 0; }
       }
       ns = Math.min(ns, iw - nx, ih - ny);
       _cropBox = {x:nx, y:ny, size:ns};
