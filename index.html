@@ -139,6 +139,40 @@ button,input,select{font-family:inherit;}
   gap:var(--gap);padding:var(--gap);
 }
 
+/* ── PRODUCT CARD IMAGE ─────────────────────── */
+.card-stock-row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:clamp(8px,2vw,13px);}
+.card-img-wrap{
+  width:clamp(80px,42%,112px);aspect-ratio:1/1;
+  border-radius:10px;overflow:hidden;background:#fff;flex-shrink:0;
+}
+.card-img{width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;display:block;}
+/* === RECOMMANDATIONS IA === */
+.reco-card{background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:clamp(14px,3vw,18px);margin-bottom:12px;transition:opacity 0.3s;}
+.reco-card.reco-applied{opacity:0.45;border-color:var(--ok);}
+.reco-card.reco-ignored{opacity:0.3;}
+.reco-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;}
+.reco-nom{font-size:0.92rem;font-weight:700;color:var(--txt);}
+.reco-champ{font-size:0.74rem;font-weight:600;color:var(--txt2);margin-top:3px;text-transform:uppercase;letter-spacing:0.04em;}
+.reco-arrow{display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:10px;padding:8px 12px;font-size:0.9rem;font-weight:700;flex-shrink:0;}
+.reco-old{color:var(--txt2);text-decoration:line-through;}
+.reco-new{color:var(--accent);}
+.reco-raison{font-size:0.82rem;color:var(--txt2);margin-bottom:12px;line-height:1.5;}
+.reco-actions{display:flex;gap:8px;}
+.reco-meta{font-size:0.75rem;color:var(--txt2);padding:0 4px 10px;text-align:center;}
+.reco-loading{display:flex;flex-direction:column;align-items:center;gap:16px;padding:48px 20px;color:var(--txt2);font-size:0.88rem;}
+
+/* Zone upload dans le modal */
+.img-upload-area{
+  width:100%;height:110px;border-radius:12px;
+  border:2px dashed var(--border);background:var(--surface);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;overflow:hidden;position:relative;gap:8px;
+  color:var(--txt2);font-size:0.83rem;font-weight:500;
+  transition:border-color 0.2s;
+}
+.img-upload-area:hover{border-color:var(--accent);}
+.img-upload-area.has-img{border-style:solid;background:#fff;}
+
 /* ── PRODUCT CARD ───────────────────────────── */
 .product-card{
   background:var(--card);border-radius:var(--radius);
@@ -162,7 +196,6 @@ button,input,select{font-family:inherit;}
 }
 .card-name{font-size:clamp(0.72rem,1.8vw,0.84rem);font-weight:600;color:var(--txt2);margin-top:clamp(4px,1vw,8px);margin-bottom:clamp(4px,1vw,8px);line-height:1.3;}
 .card-unit{font-size:0.75rem;font-weight:400;color:var(--txt2);opacity:0.7;}
-.card-stock-row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:clamp(8px,2vw,13px);}
 .card-stock{
   font-family:'Space Grotesk',sans-serif;font-size:clamp(2rem,5vw,2.8rem);font-weight:800;
   line-height:1;color:var(--txt);
@@ -483,6 +516,14 @@ button,input,select{font-family:inherit;}
 .fournisseur-actions{display:flex;gap:6px;flex-shrink:0;}
 
 /* ── PRODUCT ADMIN LIST ─────────────────────── */
+.produits-group-sep{
+  padding:10px 4px 5px;
+  font-size:0.72rem;font-weight:700;color:var(--txt2);
+  letter-spacing:0.06em;text-transform:uppercase;
+  border-bottom:1.5px solid var(--border);
+  margin-top:6px;margin-bottom:4px;
+}
+.produits-group-sep:first-child{margin-top:0;}
 .product-admin-card{
   background:var(--card);border-radius:14px;padding:clamp(10px,2.5vw,15px);
   box-shadow:var(--shadow);margin-bottom:var(--gap);display:flex;align-items:center;gap:clamp(8px,2vw,14px);
@@ -744,7 +785,8 @@ datalist{display:none;}
     <button class="nav-item-sidebar active" data-view="stock"       onclick="navigate('stock')">      <span class="nav-icon">📦</span> Stock</button>
     <button class="nav-item-sidebar"        data-view="commandes"   onclick="navigate('commandes')">  <span class="nav-icon">📋</span> Commandes</button>
     <button class="nav-item-sidebar"        data-view="fournisseurs" onclick="navigate('fournisseurs')"><span class="nav-icon">🏪</span> Fournisseurs</button>
-    <button class="nav-item-sidebar"        data-view="parametres"  onclick="navigate('parametres')"> <span class="nav-icon">⚙️</span> Paramètres</button>
+    <button class="nav-item-sidebar"        data-view="parametres"      onclick="navigate('parametres')">     <span class="nav-icon">⚙️</span> Paramètres</button>
+    <button class="nav-item-sidebar"        data-view="recommandations" onclick="navigate('recommandations')"><span class="nav-icon">🤖</span> Recommandations</button>
   </nav>
 
   <!-- Header -->
@@ -943,6 +985,21 @@ datalist{display:none;}
       </div>
     </div>
 
+    <!-- VUE RECOMMANDATIONS -->
+    <div id="view-recommandations" class="view">
+      <div class="list-header">
+        <span class="list-title">🤖 Recommandations IA</span>
+        <button class="btn btn-primary btn-sm" id="btn-run-reco" onclick="runRecommandations()">Analyser</button>
+      </div>
+      <div class="section-content" id="reco-content">
+        <div class="empty-state">
+          <span class="empty-icon">🤖</span>
+          <div class="empty-title">Aucune analyse</div>
+          <div class="empty-desc">Lance une analyse pour obtenir des recommandations basées sur tes données des 60 derniers jours.</div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /main-content -->
 
   <!-- Nav bottom -->
@@ -950,7 +1007,8 @@ datalist{display:none;}
     <button class="nav-item active" data-view="stock"        onclick="navigate('stock')">       <span class="nav-icon">📦</span><span>Stock</span></button>
     <button class="nav-item"        data-view="commandes"    onclick="navigate('commandes')">   <span class="nav-icon">📋</span><span>Commandes</span></button>
     <button class="nav-item"        data-view="fournisseurs" onclick="navigate('fournisseurs')"><span class="nav-icon">🏪</span><span>Fournisseurs</span></button>
-    <button class="nav-item"        data-view="parametres"   onclick="navigate('parametres')">  <span class="nav-icon">⚙️</span><span>Paramètres</span></button>
+    <button class="nav-item"        data-view="parametres"      onclick="navigate('parametres')">     <span class="nav-icon">⚙️</span><span>Paramètres</span></button>
+    <button class="nav-item"        data-view="recommandations" onclick="navigate('recommandations')"><span class="nav-icon">🤖</span><span>IA</span></button>
   </nav>
 </div><!-- /app -->
 
@@ -1078,6 +1136,25 @@ datalist{display:none;}
         <input id="pf-stock-max" class="form-input" type="number" min="1" value="20"></div>
       <div class="form-group"><label class="form-label">Qté par commande <span style="color:var(--txt2);font-size:0.78rem;font-weight:400">(si vide = 1 · ex: 4 si 1 commande = 4 unités)</span></label>
         <input id="pf-qte-commande" class="form-input" type="number" min="1" placeholder="Défaut : 1"></div>
+      <div class="form-group" id="pf-img-group">
+        <label class="form-label">Photo du produit <span style="color:var(--txt2);font-size:0.76rem;font-weight:400">(facultatif)</span></label>
+        <div class="img-upload-area" id="pf-img-area" onclick="openImgSource()">
+          <span id="pf-img-placeholder">📷 Appuie pour ajouter une photo</span>
+          <div id="pf-img-loaded" style="display:none;width:100%;align-items:center;gap:12px;padding:0 4px">
+            <div class="card-img-wrap" style="width:100px;height:100px;flex-shrink:0">
+              <img id="pf-img-preview" class="card-img" src="">
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:0.84rem;font-weight:600;color:var(--txt)">Photo ajoutée</div>
+              <div style="font-size:0.75rem;color:var(--txt2);margin-top:2px">Appuie pour changer</div>
+            </div>
+            <button type="button" id="pf-img-rm" onclick="event.stopPropagation();removeProductImage()" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(0,0,0,0.08);color:var(--txt);font-size:0.8rem;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">✕</button>
+          </div>
+        </div>
+        <input type="file" id="pf-image" accept="image/*" style="display:none" onchange="previewProductImage(this)">
+        <input type="file" id="pf-image-camera" accept="image/*" capture="environment" style="display:none" onchange="previewProductImage(this)">
+        <input type="hidden" id="pf-image-url" value="">
+      </div>
       <div style="display:flex;gap:8px;margin-top:4px">
         <button class="btn btn-primary btn-full" id="btn-save-product" onclick="saveProduct()">Enregistrer</button>
         <button class="btn btn-secondary" onclick="closeAddProductModal()">Annuler</button>
@@ -1111,6 +1188,19 @@ datalist{display:none;}
         <button class="btn btn-primary btn-full" id="btn-save-user" onclick="saveNewUser()">Créer le compte</button>
         <button class="btn btn-secondary" onclick="closeCreateUserModal()">Annuler</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Image source picker -->
+<div id="img-source-modal" onclick="if(event.target===this)closeImgSource()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:500;align-items:flex-end;justify-content:center">
+  <div class="modal-sheet" style="max-width:480px;width:100%;border-radius:20px 20px 0 0;padding-bottom:max(16px,env(safe-area-inset-bottom))">
+    <div class="modal-handle"></div>
+    <div class="modal-title" style="margin-bottom:14px">Ajouter une photo</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn btn-secondary" style="justify-content:flex-start;gap:14px;font-size:0.97rem;padding:14px 18px" onclick="triggerCamera()"><span style="font-size:1.25rem">📷</span> Appareil photo</button>
+      <button class="btn btn-secondary" style="justify-content:flex-start;gap:14px;font-size:0.97rem;padding:14px 18px" onclick="triggerGallery()"><span style="font-size:1.25rem">🖼️</span> Choisir depuis la galerie</button>
+      <button class="btn btn-outline btn-sm" style="margin-top:4px" onclick="closeImgSource()">Annuler</button>
     </div>
   </div>
 </div>
@@ -1171,8 +1261,8 @@ const STATE = {
 };
 
 // === NAVIGATION ===
-const HEADER_ICONS = { stock:'📦', commandes:'📋', fournisseurs:'🏪', parametres:'⚙️' };
-const HEADER_LABELS = { stock:'Stock', commandes:'Commandes', fournisseurs:'Fournisseurs', parametres:'Paramètres' };
+const HEADER_ICONS  = { stock:'📦', commandes:'📋', fournisseurs:'🏪', parametres:'⚙️', recommandations:'🤖' };
+const HEADER_LABELS = { stock:'Stock', commandes:'Commandes', fournisseurs:'Fournisseurs', parametres:'Paramètres', recommandations:'Recommandations IA' };
 
 function _cleanupForms() {
   // Formulaire ajout fournisseur
@@ -1197,7 +1287,7 @@ function _cleanupForms() {
 
 function navigate(view) {
   const isAdmin = STATE.profile?.role === 'admin';
-  if ((view==='fournisseurs'||view==='parametres') && !isAdmin) return;
+  if ((view==='fournisseurs'||view==='parametres'||view==='recommandations') && !isAdmin) return;
   _cleanupForms();
   closeProdPicker();
   if (document.getElementById('confirm-modal').classList.contains('visible')) closeConfirm();
@@ -1211,7 +1301,8 @@ function navigate(view) {
   if (view==='stock')        renderStock();
   if (view==='commandes')    loadCommandes();
   if (view==='fournisseurs') { loadFournisseurs(); loadProduitsAdmin(); loadCategories().then(renderCategories); }
-  if (view==='parametres')   { loadConfig(); if (isAdmin) { loadUsers(); } }
+  if (view==='parametres')      { loadConfig(); if (isAdmin) { loadUsers(); } }
+  if (view==='recommandations') initRecommandations();
 }
 
 function showSubTab(tabId, idx) {
@@ -1313,6 +1404,7 @@ function renderProductCard(p) {
     <div class="card-name">${esc(p.nom)}<br><span class="card-unit">${esc(p.unite)}</span></div>
     <div class="card-stock-row">
       <div class="card-stock ${cls}" id="cstock-${p.id}">${p.stock_actuel}</div>
+      ${p.image_url ? `<div class="card-img-wrap"><img class="card-img" src="${esc(p.image_url)}" loading="lazy" onerror="this.closest('.card-img-wrap').remove()"></div>` : ''}
       <div class="card-btns">
         <button class="btn-qty plus" id="cplus-${p.id}"  onclick="updateStock('${p.id}',1)">+</button>
         <button class="btn-qty minus" id="cminus-${p.id}" onclick="updateStock('${p.id}',-1)" ${p.stock_actuel<=0?'disabled':''}>−</button>
@@ -2219,7 +2311,14 @@ function renderProduitsAdmin() {
     p.nom.toLowerCase().includes(qp) ||
     p.categorie.toLowerCase().includes(qp) ||
     (p.fournisseurs?.nom||'').toLowerCase().includes(qp) ||
-    p.unite.toLowerCase().includes(qp)));
+    p.unite.toLowerCase().includes(qp)))
+    .sort((a,b) => {
+      const fa = (a.fournisseurs?.nom||'').toLowerCase();
+      const fb = (b.fournisseurs?.nom||'').toLowerCase();
+      if (fa < fb) return -1;
+      if (fa > fb) return 1;
+      return a.nom.toLowerCase().localeCompare(b.nom.toLowerCase());
+    });
   if (!prod.length) {
     if (qp) {
       list.innerHTML=`<div class="empty-state"><span class="empty-icon">🔍</span><div class="empty-title">Aucun résultat</div><div class="empty-desc">Aucun produit ne correspond à <strong>${esc(qp)}</strong>.</div></div>`;
@@ -2228,18 +2327,38 @@ function renderProduitsAdmin() {
     }
     return;
   }
-  list.innerHTML=prod.map(p=>`
-    <div class="product-admin-card">
+  let html = '';
+  let lastF = null;
+  prod.forEach(p => {
+    const fnom = p.fournisseurs?.nom || 'Sans fournisseur';
+    if (fnom !== lastF) {
+      html += `<div class="produits-group-sep">🏪 ${esc(fnom)}</div>`;
+      lastF = fnom;
+    }
+    html += `<div class="product-admin-card">
       <div class="product-admin-info">
         <div class="product-admin-name">${esc(p.nom)} <span style="color:var(--txt2);font-weight:400;font-size:0.8rem">— ${esc(p.unite)}</span></div>
-        <div class="product-admin-meta">${esc(p.categorie)} · ${esc(p.fournisseurs?.nom||'Sans fournisseur')} · Critique : ${p.stock_critique} · Max : ${p.stock_max}</div>
+        <div class="product-admin-meta">${esc(p.categorie)} · Critique : ${p.stock_critique} · Max : ${p.stock_max}</div>
       </div>
       <div class="product-admin-stock">${p.stock_actuel}</div>
       <div class="product-admin-actions">
         <button class="btn btn-secondary btn-sm" onclick="openEditProductModal('${p.id}')">✏️</button>
         <button class="btn btn-danger btn-sm"    onclick="deleteProduct('${p.id}')">🗑</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  });
+  list.innerHTML = html;
+}
+
+function _resetImgUpload() {
+  document.getElementById('pf-image').value='';
+  document.getElementById('pf-image-camera').value='';
+  document.getElementById('pf-image-url').value='';
+  document.getElementById('pf-img-preview').src='';
+  document.getElementById('pf-img-loaded').style.display='none';
+  document.getElementById('pf-img-area').classList.remove('has-img');
+  document.getElementById('pf-img-placeholder').style.display='';
+  _croppedBlob = null;
 }
 
 function openAddProductModal() {
@@ -2250,6 +2369,7 @@ function openAddProductModal() {
   document.getElementById('pf-stock-critique').value='5';
   document.getElementById('pf-stock-max').value='20';
   document.getElementById('pf-qte-commande').value='';
+  _resetImgUpload();
   fillFournisseurSelect(''); fillCategoryDatalist();
   document.getElementById('add-product-modal').classList.add('visible');
   setTimeout(()=>document.getElementById('pf-nom').focus(),100);
@@ -2267,6 +2387,14 @@ function openEditProductModal(id) {
   document.getElementById('pf-stock-critique').value=p.stock_critique;
   document.getElementById('pf-stock-max').value=p.stock_max;
   document.getElementById('pf-qte-commande').value=p.qte_par_unite_commande>1?p.qte_par_unite_commande:'';
+  _resetImgUpload();
+  if (p.image_url) {
+    document.getElementById('pf-image-url').value=p.image_url;
+    document.getElementById('pf-img-preview').src=p.image_url;
+    document.getElementById('pf-img-loaded').style.display='flex';
+    document.getElementById('pf-img-area').classList.add('has-img');
+    document.getElementById('pf-img-placeholder').style.display='none';
+  }
   fillFournisseurSelect(p.fournisseur_id||''); fillCategoryDatalist();
   document.getElementById('add-product-modal').classList.add('visible');
 }
@@ -2389,8 +2517,120 @@ function deleteCategorie(name, cnt) {
     } catch(e) { toast('Erreur suppression', 'error'); }
   }});
 }
-function closeAddProductModal() { document.getElementById('add-product-modal').classList.remove('visible'); }
+function closeAddProductModal() { document.getElementById('add-product-modal').classList.remove('visible'); _resetImgUpload(); }
 function handleModalBackdrop(e) { if(e.target===document.getElementById('add-product-modal')) closeAddProductModal(); }
+
+// === IMAGE PRODUIT ===
+let _croppedBlob = null;
+
+function openImgSource() {
+  document.getElementById('img-source-modal').style.display = 'flex';
+}
+function closeImgSource() {
+  document.getElementById('img-source-modal').style.display = 'none';
+}
+function triggerCamera() {
+  closeImgSource();
+  document.getElementById('pf-image-camera').click();
+}
+function triggerGallery() {
+  closeImgSource();
+  document.getElementById('pf-image').click();
+}
+
+function previewProductImage(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  if (file.size > 20 * 1024 * 1024) { toast('Image trop lourde (max 20 Mo)', 'error'); return; }
+  const placeholder = document.getElementById('pf-img-placeholder');
+  placeholder.textContent = '⏳ Traitement...';
+  placeholder.style.display = '';
+  document.getElementById('pf-img-preview').style.display = 'none';
+  document.getElementById('pf-img-rm').style.display = 'none';
+  setTimeout(async () => {
+    try {
+      _croppedBlob = await _autoProcessImage(file);
+      const url = URL.createObjectURL(_croppedBlob);
+      document.getElementById('pf-img-preview').src = url;
+      document.getElementById('pf-img-loaded').style.display = 'flex';
+      document.getElementById('pf-img-area').classList.add('has-img');
+      placeholder.style.display = 'none';
+    } catch(e) {
+      placeholder.textContent = '📷 Appuie pour ajouter une photo';
+      toast('Erreur traitement image', 'error');
+    }
+  }, 60);
+}
+
+function removeProductImage() {
+  _resetImgUpload();
+  document.getElementById('pf-image-url').value = '__remove__';
+}
+
+function _autoProcessImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = e => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const SIZE = 380;
+        const canvas = document.createElement('canvas');
+        canvas.width = SIZE; canvas.height = SIZE;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, SIZE, SIZE);
+        const side = Math.min(img.naturalWidth, img.naturalHeight);
+        const sx = (img.naturalWidth - side) / 2;
+        const sy = (img.naturalHeight - side) / 2;
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
+        _removeBgToWhite(canvas, ctx);
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', 0.86);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function _removeBgToWhite(canvas, ctx) {
+  const w = canvas.width, h = canvas.height;
+  const id = ctx.getImageData(0, 0, w, h);
+  const d = id.data;
+  const corners = [[0,0],[w-1,0],[0,h-1],[w-1,h-1]];
+  let bgR=0, bgG=0, bgB=0;
+  corners.forEach(([x,y]) => { const i=(y*w+x)*4; bgR+=d[i]; bgG+=d[i+1]; bgB+=d[i+2]; });
+  bgR=Math.round(bgR/4); bgG=Math.round(bgG/4); bgB=Math.round(bgB/4);
+  if ((bgR+bgG+bgB)/3 < 140) return; // fond sombre, on ne touche pas
+  const TOL = 45 * 3;
+  const visited = new Uint8Array(w * h);
+  const queue = [];
+  corners.forEach(([x,y]) => { const p=y*w+x; if(!visited[p]){visited[p]=1;queue.push(p);} });
+  let qi = 0;
+  while (qi < queue.length) {
+    const pos = queue[qi++];
+    const i = pos * 4;
+    if (Math.abs(d[i]-bgR)+Math.abs(d[i+1]-bgG)+Math.abs(d[i+2]-bgB) > TOL) continue;
+    d[i]=255; d[i+1]=255; d[i+2]=255; d[i+3]=255;
+    const x=pos%w, y=Math.floor(pos/w);
+    if (x>0   && !visited[pos-1]) { visited[pos-1]=1; queue.push(pos-1); }
+    if (x<w-1 && !visited[pos+1]) { visited[pos+1]=1; queue.push(pos+1); }
+    if (y>0   && !visited[pos-w]) { visited[pos-w]=1; queue.push(pos-w); }
+    if (y<h-1 && !visited[pos+w]) { visited[pos+w]=1; queue.push(pos+w); }
+  }
+  ctx.putImageData(id, 0, 0);
+}
+
+async function uploadProductImage(file, productId) {
+  const blob = _croppedBlob || await compressImage(file);
+  _croppedBlob = null;
+  const path = `${productId || 'new'}-${Date.now()}.jpg`;
+  const { error } = await sb.storage.from('product-images').upload(path, blob, { contentType:'image/jpeg', upsert:true });
+  if (error) throw error;
+  return sb.storage.from('product-images').getPublicUrl(path).data.publicUrl;
+}
 
 async function saveProduct() {
   const id            =document.getElementById('edit-product-id').value;
@@ -2408,8 +2648,20 @@ async function saveProduct() {
   if (stock_critique>=stock_max) { toast('Stock critique doit être < stock max','error'); return; }
   const btn=document.getElementById('btn-save-product');
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
-  const payload={nom,categorie,unite,fournisseur_id,stock_actuel,stock_critique,stock_max,qte_par_unite_commande};
   try {
+    // Gestion image
+    let image_url = undefined; // undefined = ne pas toucher
+    const fileInput = document.getElementById('pf-image');
+    const savedUrl  = document.getElementById('pf-image-url').value;
+    if (fileInput.files[0] || _croppedBlob) {
+      image_url = await uploadProductImage(fileInput.files[0] || null, id || null);
+    } else if (savedUrl === '__remove__') {
+      image_url = null;
+    } else if (savedUrl) {
+      image_url = savedUrl; // garder l'existante
+    }
+    const payload={nom,categorie,unite,fournisseur_id,stock_actuel,stock_critique,stock_max,qte_par_unite_commande};
+    if (image_url !== undefined) payload.image_url = image_url;
     if (id) {
       const {error}=await sb.from('produits').update(payload).eq('id',id);
       if (error) throw error;
@@ -2437,6 +2689,117 @@ function deleteProduct(id) {
       toast('Produit supprimé','success');
     } catch(e) { toast('Erreur : '+e.message,'error'); }
   }});
+}
+
+// === RECOMMANDATIONS IA ===
+const _RECO_CACHE_KEY = 'snack_reco_cache';
+const _RECO_TS_KEY    = 'snack_reco_ts';
+const _RECO_AUTO_MS   = 7 * 24 * 60 * 60 * 1000; // 7 jours
+let _recoFirstLoad    = true;
+
+function initRecommandations() {
+  if (!_recoFirstLoad) return;
+  _recoFirstLoad = false;
+  const cached = localStorage.getItem(_RECO_CACHE_KEY);
+  const ts     = localStorage.getItem(_RECO_TS_KEY);
+  if (cached) {
+    renderRecommandations(JSON.parse(cached), ts ? Number(ts) : null, false);
+    document.getElementById('btn-run-reco').textContent = 'Relancer';
+    if (!ts || Date.now() - Number(ts) > _RECO_AUTO_MS) runRecommandations();
+  } else {
+    runRecommandations();
+  }
+}
+
+async function runRecommandations() {
+  if (_isOffline) { toast('Analyse impossible hors ligne', 'error'); return; }
+  const btn = document.getElementById('btn-run-reco');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  document.getElementById('reco-content').innerHTML = '<div class="reco-loading"><div class="loading-dots"><span></span><span></span><span></span></div><div>Analyse en cours…</div></div>';
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(`${sbUrl}/functions/v1/get-recommendations`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || `Erreur ${res.status}`);
+    localStorage.setItem(_RECO_CACHE_KEY, JSON.stringify(json.recommendations));
+    localStorage.setItem(_RECO_TS_KEY, Date.now().toString());
+    renderRecommandations(json.recommendations, Date.now(), json.insufficient_data);
+  } catch(e) {
+    document.getElementById('reco-content').innerHTML = `<div class="empty-state"><span class="empty-icon">⚠️</span><div class="empty-title">Erreur</div><div class="empty-desc">${esc(e.message)}</div></div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Relancer';
+  }
+}
+
+function renderRecommandations(recos, ts, insufficientData) {
+  const content = document.getElementById('reco-content');
+  if (insufficientData) {
+    content.innerHTML = '<div class="empty-state"><span class="empty-icon">📊</span><div class="empty-title">Pas encore assez de données</div><div class="empty-desc">Continue d\'utiliser l\'app quelques semaines. L\'IA a besoin de voir les mouvements de stock réels (entrées/sorties) pour faire des recommandations fiables.</div></div>';
+    return;
+  }
+  if (!recos || !recos.length) {
+    content.innerHTML = '<div class="empty-state"><span class="empty-icon">✅</span><div class="empty-title">Tout est optimal</div><div class="empty-desc">Aucun ajustement nécessaire pour le moment.</div></div>';
+    return;
+  }
+  const dateStr = ts ? new Date(ts).toLocaleDateString('fr-FR', { day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' }) : '';
+  const champsInfo = {
+    stock_critique: { label:'Stock critique', icon:'⚠️' },
+    stock_max:      { label:'Stock max',      icon:'📦' },
+  };
+  content.innerHTML = `
+    <div class="reco-meta">Analyse du ${dateStr} · ${recos.length} recommandation${recos.length>1?'s':''}</div>
+    ${recos.map((r, i) => {
+      const info = champsInfo[r.champ] || { label: r.champ, icon: '🔧' };
+      return `<div class="reco-card" id="reco-card-${i}">
+        <div class="reco-header">
+          <div>
+            <div class="reco-nom">${info.icon} ${esc(r.produit_nom)}</div>
+            <div class="reco-champ">${info.label}</div>
+          </div>
+          <div class="reco-arrow">
+            <span class="reco-old">${r.valeur_actuelle}</span>
+            <span style="color:var(--txt2)">→</span>
+            <span class="reco-new">${r.valeur_proposee}</span>
+          </div>
+        </div>
+        <div class="reco-raison">${esc(r.raison)}</div>
+        <div class="reco-actions" id="reco-actions-${i}">
+          <button class="btn btn-primary btn-sm" onclick="applyReco(${i},'${r.produit_id}','${r.champ}',${r.valeur_proposee})">✓ Appliquer</button>
+          <button class="btn btn-secondary btn-sm" onclick="ignoreReco(${i})">Ignorer</button>
+        </div>
+      </div>`;
+    }).join('')}`;
+}
+
+async function applyReco(idx, produit_id, champ, valeur) {
+  const actions = document.getElementById('reco-actions-' + idx);
+  const btn = actions.querySelector('.btn-primary');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    const { error } = await sb.from('produits').update({ [champ]: valeur }).eq('id', produit_id);
+    if (error) throw error;
+    const p = STATE.produits.find(p => p.id === produit_id);
+    if (p) { p[champ] = valeur; if (STATE.view === 'stock') renderStock(); }
+    document.getElementById('reco-card-' + idx).classList.add('reco-applied');
+    actions.innerHTML = '<span style="color:var(--ok);font-size:0.85rem;font-weight:600">✓ Appliqué</span>';
+    _log('reco_apply', { produit_id, champ, valeur });
+    toast('Paramètre mis à jour', 'success');
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = '✓ Appliquer';
+  }
+}
+
+function ignoreReco(idx) {
+  document.getElementById('reco-card-' + idx).classList.add('reco-ignored');
+  document.getElementById('reco-actions-' + idx).innerHTML = '<span style="color:var(--txt2);font-size:0.83rem">Ignoré</span>';
 }
 
 // === PARAMÈTRES ===
@@ -2486,6 +2849,8 @@ async function testTelegram() {
   const token=document.getElementById('cfg-telegram-token').value.trim();
   const chatId=document.getElementById('cfg-telegram-chatid').value.trim();
   if (!token||!chatId) { toast("Configure d'abord le token et le Chat ID",'error'); return; }
+  // Sauvegarde d'abord → l'alerte auto utilisera les mêmes IDs
+  await saveTelegramConfig();
   try {
     const crits=STATE.produits.filter(p=>p.actif && p.stock_actuel<=p.stock_critique);
     const today=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -2929,7 +3294,7 @@ async function logoutUser() {
 
 function applyRoleUI(role) {
   const isAdmin=role==='admin';
-  ['fournisseurs','parametres'].forEach(v=>{
+  ['fournisseurs','parametres','recommandations'].forEach(v=>{
     document.querySelectorAll(`[data-view="${v}"]`).forEach(el=>el.style.display=isAdmin?'':'none');
   });
   const sectUsers=document.getElementById('section-users');
