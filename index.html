@@ -1151,8 +1151,6 @@ datalist{display:none;}
             <button type="button" id="pf-img-rm" onclick="event.stopPropagation();removeProductImage()" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(0,0,0,0.08);color:var(--txt);font-size:0.8rem;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">✕</button>
           </div>
         </div>
-        <input type="file" id="pf-image" accept="image/*" style="display:none" onchange="previewProductImage(this)">
-        <input type="file" id="pf-image-camera" accept="image/*" capture="environment" style="display:none" onchange="previewProductImage(this)">
         <input type="hidden" id="pf-image-url" value="">
       </div>
       <div style="display:flex;gap:8px;margin-top:4px">
@@ -1198,8 +1196,8 @@ datalist{display:none;}
     <div class="modal-handle"></div>
     <div class="modal-title" style="margin-bottom:14px">Ajouter une photo</div>
     <div style="display:flex;flex-direction:column;gap:10px">
-      <button class="btn btn-secondary" style="justify-content:flex-start;gap:14px;font-size:0.97rem;padding:14px 18px" onclick="triggerCamera()"><span style="font-size:1.25rem">📷</span> Appareil photo</button>
-      <button class="btn btn-secondary" style="justify-content:flex-start;gap:14px;font-size:0.97rem;padding:14px 18px" onclick="triggerGallery()"><span style="font-size:1.25rem">🖼️</span> Choisir depuis la galerie</button>
+      <label class="btn btn-secondary" style="justify-content:flex-start;gap:14px;font-size:0.97rem;padding:14px 18px;cursor:pointer"><span style="font-size:1.25rem">📷</span> Appareil photo<input type="file" id="pf-image-camera" accept="image/*" capture="environment" style="display:none" onchange="previewProductImage(this)"></label>
+      <label class="btn btn-secondary" style="justify-content:flex-start;gap:14px;font-size:0.97rem;padding:14px 18px;cursor:pointer"><span style="font-size:1.25rem">🖼️</span> Choisir depuis la galerie<input type="file" id="pf-image" accept="image/*" style="display:none" onchange="previewProductImage(this)"></label>
       <button class="btn btn-outline btn-sm" style="margin-top:4px" onclick="closeImgSource()">Annuler</button>
     </div>
   </div>
@@ -2539,6 +2537,7 @@ function triggerGallery() {
 }
 
 function previewProductImage(input) {
+  closeImgSource();
   const file = input.files[0];
   input.value = '';
   if (!file) return;
