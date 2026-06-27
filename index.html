@@ -2139,7 +2139,7 @@ function copyPrepMessage(btn) {
   const date = new Date().toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
   const liste = lines.map(l => {
     const p = STATE.produits.find(p => p.id === l.produit_id);
-    return `- ${p?.nom || ''} : ${l.qty} ${p?.unite || ''}`;
+    return `- ${p?.nom || ''} : ${l.qty}`;
   }).join('\n');
   const template = STATE.config.msg_commande?.trim() || 'Commande {fournisseur} — {date}\n\n{liste}';
   const msg = template.replace('{fournisseur}', fNom).replace('{date}', date).replace('{liste}', liste);
@@ -2173,7 +2173,7 @@ function copyCommandeMessage() {
   const fNom=f?.nom||'Commande';
   const cmd=STATE.commandes.find(c=>c.id===STATE.currentCommandeId);
   const date=cmd?formatDate(cmd.date):new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const liste=lines.map(l=>`- ${l.produits?.nom||''} : ${l.quantite_commandee} ${l.produits?.unite||''}`).join('\n');
+  const liste=lines.map(l=>`- ${l.produits?.nom||''} : ${l.quantite_commandee}`).join('\n');
   const template=STATE.config.msg_commande?.trim()||'Commande {fournisseur} — {date}\n\n{liste}';
   const msg=template.replace('{fournisseur}',fNom).replace('{date}',date).replace('{liste}',liste);
   navigator.clipboard.writeText(msg)
