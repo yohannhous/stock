@@ -14,6 +14,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
 :root {
   --bg:       #f0f2f8;
@@ -818,11 +819,14 @@ datalist{display:none;}
         <button class="btn btn-outline btn-sm" onclick="openInventaire()">📋 Inventaire</button>
       </div>
       <div id="category-tabs" class="tabs-wrap"></div>
-      <div class="search-wrap">
-        <span class="search-ico">🔍</span>
-        <input id="search-stock" class="search-input" type="search" placeholder="Rechercher un produit, une catégorie…"
-          oninput="filterStock(this.value)">
-        <button class="search-clr" id="search-stock-clr" onclick="clearSearch('stock')">✕</button>
+      <div style="display:flex;align-items:center">
+        <div class="search-wrap" style="flex:1">
+          <span class="search-ico">🔍</span>
+          <input id="search-stock" class="search-input" type="search" placeholder="Rechercher un produit, une catégorie…"
+            oninput="filterStock(this.value)">
+          <button class="search-clr" id="search-stock-clr" onclick="clearSearch('stock')">✕</button>
+        </div>
+        <button class="btn btn-secondary btn-sm" style="flex-shrink:0;margin-right:var(--gap)" onclick="scanForStockSearch()" title="Scanner un code-barre">📷</button>
       </div>
       <div id="products-grid" class="products-grid"></div>
     </div>
@@ -882,6 +886,8 @@ datalist{display:none;}
                 <button type="button" class="day-btn" data-day="sam" onclick="toggleDayBtn(this)">Sam</button>
                 <button type="button" class="day-btn" data-day="dim" onclick="toggleDayBtn(this)">Dim</button>
               </div></div>
+            <div class="form-group"><label class="form-label">Qté min. commande <span style="color:var(--txt2);font-size:0.76rem;font-weight:400">(cartons — laisser vide si pas de minimum)</span></label>
+              <input id="new-f-min" class="form-input" type="number" min="1" placeholder="ex: 10"></div>
             <div style="display:flex;gap:8px">
               <button class="btn btn-primary btn-sm" onclick="saveFournisseur()">Enregistrer</button>
               <button class="btn btn-secondary btn-sm" onclick="toggleAddFournisseur()">Annuler</button>
@@ -1067,6 +1073,7 @@ datalist{display:none;}
     <div id="prep-subtitle" style="font-size:0.82rem;color:var(--txt2);margin-top:-14px;margin-bottom:16px"></div>
     <div id="prep-body"></div>
     <button class="prep-btn-add-product" onclick="openPrepAddProduct()">+ Ajouter un autre produit</button>
+    <div id="prep-min-info" style="display:none;margin-top:10px;padding:10px 14px;border-radius:12px;font-size:0.85rem;font-weight:600"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-primary btn-full" id="btn-create-order" onclick="createOrderFromPrep()">Créer la commande</button>
       <button class="btn btn-secondary" onclick="closePrepModal()">Annuler</button>
@@ -1125,6 +1132,11 @@ datalist{display:none;}
         </div></div>
       <div class="form-group"><label class="form-label">Unité *</label>
         <input id="pf-unite" class="form-input" type="text" placeholder="boîte, bouteille, paquet…"></div>
+      <div class="form-group"><label class="form-label">Code-barre <span style="color:var(--txt2);font-size:0.76rem;font-weight:400">(facultatif)</span></label>
+        <div class="input-pick-wrap">
+          <input id="pf-code-barre" class="form-input" type="text" placeholder="Scanner ou saisir le code">
+          <button type="button" class="input-pick-btn" onclick="scanForProductForm()">📷</button>
+        </div></div>
       <div class="form-group"><label class="form-label">Fournisseur</label>
         <button type="button" class="picker-trigger empty" id="pf-fournisseur-btn" onclick="openFournisseurPicker()">— Aucun —</button>
         <input type="hidden" id="pf-fournisseur" value=""></div>
@@ -1224,6 +1236,15 @@ datalist{display:none;}
     <button type="button" onclick="cancelCrop()" style="flex:1;padding:14px;border-radius:14px;border:1.5px solid rgba(255,255,255,0.25);background:transparent;color:#fff;font-size:0.97rem;cursor:pointer">Annuler</button>
     <button type="button" onclick="confirmCrop()" style="flex:2;padding:14px;border-radius:14px;border:none;background:var(--accent);color:#fff;font-size:0.97rem;font-weight:600;cursor:pointer">Valider</button>
   </div>
+</div>
+
+<!-- Scanner code-barre modal -->
+<div id="scanner-modal" style="display:none;position:fixed;inset:0;background:#000;z-index:800;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;padding-top:max(14px,env(safe-area-inset-top))">
+    <div style="color:#fff;font-size:0.95rem;font-weight:600">📷 Scanner un code-barre</div>
+    <button onclick="closeScannerModal()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer">✕</button>
+  </div>
+  <div id="scanner-reader" style="flex:1;width:100%"></div>
 </div>
 
 <!-- Toasts -->
@@ -1531,6 +1552,16 @@ function setupRealtime() {
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'config_app'},payload=>{
         if (payload.new?.cle==='categories' && STATE.view==='fournisseurs') loadCategories().then(renderCategories);
       })
+      .on('postgres_changes',{event:'*',schema:'public',table:'commandes'}, payload => {
+        if (STATE.view==='commandes') loadCommandes(true);
+        const changedId = payload.new?.id || payload.old?.id;
+        if (STATE.currentCommandeId && STATE.currentCommandeId === changedId) _reloadDetailSilent(changedId);
+      })
+      .on('postgres_changes',{event:'*',schema:'public',table:'commande_lignes'}, payload => {
+        if (STATE.view==='commandes') loadCommandes(true);
+        const changedCmdId = payload.new?.commande_id || payload.old?.commande_id;
+        if (STATE.currentCommandeId && STATE.currentCommandeId === changedCmdId) _reloadDetailSilent(changedCmdId);
+      })
       .subscribe();
   } catch(e) {}
   setInterval(_autoRefresh, 60000);
@@ -1672,6 +1703,7 @@ async function openCommandeDetail(cmdId) {
       _recue: cmd.statut==='en_attente' ? l.quantite_commandee : l.quantite_recue,
     }));
     const detFId=(lines||[])[0]?.produits?.fournisseur_id;
+    STATE.currentCommandeFournisseurId=detFId||null;
     const detF=STATE.fournisseurs.find(f=>f.id===detFId);
     document.getElementById('detail-title').textContent=(detF?detF.nom+' — ':'')+formatDateShort(cmd.date);
     const sb2=document.getElementById('detail-status-badge');
@@ -1679,6 +1711,21 @@ async function openCommandeDetail(cmdId) {
     sb2.className='badge '+(SC[cmd.statut]||'badge-gray');
     renderCommandeDetail(cmd.statut);
   } catch(e) { toast('Erreur chargement commande','error'); }
+}
+
+async function _reloadDetailSilent(cmdId) {
+  try {
+    const [{data:cmd},{data:lines}]=await Promise.all([
+      sb.from('commandes').select('*').eq('id',cmdId).single(),
+      sb.from('commande_lignes').select('*,produits(nom,unite,fournisseur_id,qte_par_unite_commande)').eq('commande_id',cmdId),
+    ]);
+    if (!cmd) return;
+    STATE.currentCommandeStatut=cmd.statut;
+    STATE.currentCommandeLines=(lines||[]).map(l=>({...l, _recue:cmd.statut==='en_attente'?l.quantite_commandee:l.quantite_recue}));
+    const sb2=document.getElementById('detail-status-badge');
+    if (sb2) { sb2.textContent=SL[cmd.statut]||cmd.statut; sb2.className='badge '+(SC[cmd.statut]||'badge-gray'); }
+    renderCommandeDetail(cmd.statut);
+  } catch(e) {}
 }
 
 function renderCommandeDetail(statut) {
@@ -1753,9 +1800,10 @@ function adjRecep(lid, delta) {
   if (s) s.textContent=l._recue===0?'❌':l._recue>=l.quantite_commandee?'✅':'🟡';
 }
 
-function removeReceptionLine(lid) {
+async function removeReceptionLine(lid) {
   STATE.currentCommandeLines=STATE.currentCommandeLines.filter(l=>l.id!==lid);
   document.getElementById('rline-'+lid)?.remove();
+  try { await sb.from('commande_lignes').delete().eq('id',lid); } catch(e) {}
 }
 
 function openAddLinePanel() {
@@ -1776,19 +1824,30 @@ function openAddLinePanel() {
   document.getElementById('detail-body').appendChild(panel);
 }
 
-function confirmAddLine() {
+async function confirmAddLine() {
   const pid=document.getElementById('al-product').value;
   const qty=parseInt(document.getElementById('al-qty').value)||0;
   if (!pid) { toast('Sélectionne un produit','error'); return; }
   const p=STATE.produits.find(p=>p.id===pid);
   if (!p) return;
-  STATE.currentCommandeLines.push({
-    id:'tmp-'+Date.now(), commande_id:STATE.currentCommandeId,
-    produit_id:pid, quantite_commandee:qty, quantite_recue:0, _recue:qty,
-    produits:{nom:p.nom,unite:p.unite,fournisseur_id:p.fournisseur_id}, _isNew:true,
-  });
-  document.getElementById('add-line-panel-el')?.remove();
-  renderCommandeDetail(STATE.currentCommandeStatut);
+  const panel=document.getElementById('add-line-panel-el');
+  const btn=panel?.querySelector('.btn-primary');
+  if (btn) { btn.disabled=true; btn.textContent='Ajout...'; }
+  try {
+    const {data,error}=await sb.from('commande_lignes')
+      .insert({commande_id:STATE.currentCommandeId,produit_id:pid,quantite_commandee:qty,quantite_recue:0})
+      .select().single();
+    if (error) throw error;
+    STATE.currentCommandeLines.push({
+      ...data, _recue:qty,
+      produits:{nom:p.nom,unite:p.unite,fournisseur_id:p.fournisseur_id,qte_par_unite_commande:p.qte_par_unite_commande},
+    });
+    panel?.remove();
+    renderCommandeDetail(STATE.currentCommandeStatut);
+  } catch(e) {
+    toast('Erreur ajout produit','error');
+    if (btn) { btn.disabled=false; btn.textContent='Ajouter'; }
+  }
 }
 
 async function validerReception(cmdId) {
@@ -1796,13 +1855,8 @@ async function validerReception(cmdId) {
   if (btn) { btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Validation...'; }
   try {
     for (const l of STATE.currentCommandeLines) {
-      if (l._isNew) {
-        const {error}=await sb.from('commande_lignes').insert({commande_id:cmdId,produit_id:l.produit_id,quantite_commandee:l.quantite_commandee,quantite_recue:l._recue});
-        if (error) throw error;
-      } else {
-        const {error}=await sb.from('commande_lignes').update({quantite_recue:l._recue}).eq('id',l.id);
-        if (error) throw error;
-      }
+      const {error}=await sb.from('commande_lignes').update({quantite_recue:l._recue}).eq('id',l.id);
+      if (error) throw error;
       if (l._recue>0) {
         const p=STATE.produits.find(p=>p.id===l.produit_id);
         if (p) {
@@ -1937,6 +1991,7 @@ function renderPrepBody() {
         <button class="btn-rm" onclick="removePrepLine(${i})" title="Retirer">🗑</button>
       </div>
     </div>`).join('');
+  _updatePrepTotal();
 }
 
 function adjPrepQty(idx, delta) {
@@ -1945,6 +2000,28 @@ function adjPrepQty(idx, delta) {
   l.qty = Math.max(0, l.qty + delta);
   const el = document.getElementById('prepqty-' + idx);
   if (el) el.textContent = l.qty;
+  _updatePrepTotal();
+}
+
+function _updatePrepTotal() {
+  const info = document.getElementById('prep-min-info');
+  if (!info) return;
+  const total = STATE.prepLines.reduce((s, l) => s + (l.qty || 0), 0);
+  const f = STATE.fournisseurs.find(f => f.id === STATE.prepFournisseurId);
+  const min = f?.qte_min_commande;
+  if (!min) { info.style.display = 'none'; return; }
+  info.style.display = 'block';
+  if (total < min) {
+    info.style.background = '#fef9ec';
+    info.style.color = 'var(--warn)';
+    info.style.border = '1.5px solid #fde68a';
+    info.textContent = `⚠️ Total : ${total} carton${total>1?'s':''} — minimum requis : ${min}`;
+  } else {
+    info.style.background = '#f0fdf4';
+    info.style.color = 'var(--ok)';
+    info.style.border = '1.5px solid #bbf7d0';
+    info.textContent = `✓ Total : ${total} carton${total>1?'s':''} — minimum atteint`;
+  }
 }
 
 function removePrepLine(idx) {
@@ -2078,7 +2155,8 @@ function openCategoriePicker() {
 }
 
 function openProductPickerForReception() {
-  const available = STATE.produits.filter(p => p.actif);
+  const already = STATE.currentCommandeLines.map(l => l.produit_id);
+  const available = STATE.produits.filter(p => p.actif && p.fournisseur_id === STATE.currentCommandeFournisseurId && !already.includes(p.id));
   openPicker({
     title: 'Choisir un produit',
     items: available.map(p => ({
@@ -2240,6 +2318,8 @@ function renderFournisseurs() {
           <div class="day-picker" id="fedit-days-${f.id}">
             ${['lun','mar','mer','jeu','ven','sam','dim'].map(d=>`<button type="button" class="day-btn${(f.jours_livraison||'').includes(d)?' active':''}" data-day="${d}" onclick="toggleDayBtn(this)">${d.charAt(0).toUpperCase()+d.slice(1)}</button>`).join('')}
           </div></div>
+        <div class="form-group"><label class="form-label">Qté min. commande <span style="color:var(--txt2);font-size:0.76rem;font-weight:400">(cartons)</span></label>
+          <input class="form-input" id="fedit-min-${f.id}" type="number" min="1" placeholder="ex: 10" value="${f.qte_min_commande||''}"></div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-primary btn-sm" onclick="updateFournisseur('${f.id}')">Enregistrer</button>
           <button class="btn btn-secondary btn-sm" onclick="cancelEditF()">Annuler</button>
@@ -2251,7 +2331,7 @@ function renderFournisseurs() {
         <div>
           <div class="fournisseur-name">${esc(f.nom)}</div>
           <div class="fournisseur-contact">${esc(f.contact||'—')}</div>
-          <span class="fournisseur-tag">${cnt} produit${cnt!==1?'s':''}</span>${f.jours_livraison?` <span class="fournisseur-tag">🚚 ${f.jours_livraison.split(',').map(d=>d.charAt(0).toUpperCase()+d.slice(1)).join(', ')}</span>`:''}
+          <span class="fournisseur-tag">${cnt} produit${cnt!==1?'s':''}</span>${f.jours_livraison?` <span class="fournisseur-tag">🚚 ${f.jours_livraison.split(',').map(d=>d.charAt(0).toUpperCase()+d.slice(1)).join(', ')}</span>`:''}${f.qte_min_commande?` <span class="fournisseur-tag">📦 Min. ${f.qte_min_commande} cartons</span>`:''}
         </div>
         <div class="fournisseur-actions">
           <button class="btn btn-secondary btn-sm" onclick="editFournisseur('${f.id}')">✏️</button>
@@ -2277,12 +2357,14 @@ async function saveFournisseur() {
   const jours_livraison=getDaysFromPicker('new-f-days');
   if (!nom) { toast('Le nom est obligatoire','error'); return; }
   try {
-    const {data,error}=await sb.from('fournisseurs').insert({nom,contact,jours_livraison}).select().single();
+    const qte_min_commande=parseInt(document.getElementById('new-f-min').value)||null;
+  const {data,error}=await sb.from('fournisseurs').insert({nom,contact,jours_livraison,qte_min_commande}).select().single();
     if (error) throw error;
     STATE.fournisseurs.push(data);
     STATE.fournisseurs.sort((a,b)=>a.nom.localeCompare(b.nom));
     document.getElementById('new-f-nom').value='';
     document.getElementById('new-f-contact').value='';
+    document.getElementById('new-f-min').value='';
     document.querySelectorAll('#new-f-days .day-btn').forEach(b=>b.classList.remove('active'));
     toggleAddFournisseur();
     renderFournisseurs();
@@ -2299,10 +2381,11 @@ async function updateFournisseur(id) {
   const jours_livraison=getDaysFromPicker('fedit-days-'+id);
   if (!nom) { toast('Le nom est obligatoire','error'); return; }
   try {
-    const {error}=await sb.from('fournisseurs').update({nom,contact,jours_livraison}).eq('id',id);
+    const qte_min_commande=parseInt(document.getElementById('fedit-min-'+id).value)||null;
+    const {error}=await sb.from('fournisseurs').update({nom,contact,jours_livraison,qte_min_commande}).eq('id',id);
     if (error) throw error;
     const f=STATE.fournisseurs.find(f=>f.id===id);
-    if (f) { f.nom=nom; f.contact=contact; f.jours_livraison=jours_livraison; }
+    if (f) { f.nom=nom; f.contact=contact; f.jours_livraison=jours_livraison; f.qte_min_commande=qte_min_commande; }
     STATE.editingFournisseurId=null;
     renderFournisseurs();
     toast('Fournisseur mis à jour','success');
@@ -2400,6 +2483,7 @@ function openAddProductModal() {
   document.getElementById('pf-stock-critique').value='5';
   document.getElementById('pf-stock-max').value='20';
   document.getElementById('pf-qte-commande').value='';
+  document.getElementById('pf-code-barre').value='';
   _resetImgUpload();
   fillFournisseurSelect(''); fillCategoryDatalist();
   document.getElementById('add-product-modal').classList.add('visible');
@@ -2418,6 +2502,7 @@ function openEditProductModal(id) {
   document.getElementById('pf-stock-critique').value=p.stock_critique;
   document.getElementById('pf-stock-max').value=p.stock_max;
   document.getElementById('pf-qte-commande').value=p.qte_par_unite_commande>1?p.qte_par_unite_commande:'';
+  document.getElementById('pf-code-barre').value=p.code_barre||'';
   _resetImgUpload();
   if (p.image_url) {
     document.getElementById('pf-image-url').value=p.image_url;
@@ -2707,6 +2792,54 @@ function confirmCrop() {
   }, 'image/jpeg', 0.86);
 }
 
+let _html5Scanner = null;
+let _scannerCallback = null;
+
+function openScanner(onResult) {
+  _scannerCallback = onResult;
+  document.getElementById('scanner-modal').style.display = 'flex';
+  _html5Scanner = new Html5Qrcode('scanner-reader');
+  _html5Scanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 260, height: 160 } },
+    decodedText => _onScanSuccess(decodedText),
+    () => {}
+  ).catch(() => {
+    toast("Impossible d'accéder à la caméra", 'error');
+    closeScannerModal();
+  });
+}
+
+function _onScanSuccess(text) {
+  const cb = _scannerCallback;
+  closeScannerModal();
+  if (cb) cb(text);
+}
+
+function closeScannerModal() {
+  document.getElementById('scanner-modal').style.display = 'none';
+  if (_html5Scanner) {
+    const s = _html5Scanner;
+    _html5Scanner = null;
+    s.stop().catch(() => {}).finally(() => s.clear());
+  }
+}
+
+function scanForStockSearch() {
+  openScanner(code => {
+    const p = STATE.produits.find(p => p.code_barre === code);
+    if (!p) { toast('Aucun produit avec ce code-barre', 'error'); return; }
+    document.getElementById('search-stock').value = p.nom;
+    filterStock(p.nom);
+  });
+}
+
+function scanForProductForm() {
+  openScanner(code => {
+    document.getElementById('pf-code-barre').value = code;
+  });
+}
+
 function _initCropDrag() {
   const box = document.getElementById('crop-box');
 
@@ -2788,6 +2921,7 @@ async function saveProduct() {
   const stock_critique=parseInt(document.getElementById('pf-stock-critique').value)||5;
   const stock_max     =parseInt(document.getElementById('pf-stock-max').value)||20;
   const qte_par_unite_commande=parseInt(document.getElementById('pf-qte-commande').value)||null;
+  const code_barre    =document.getElementById('pf-code-barre').value.trim()||null;
   if (!nom)      { toast('Le nom est obligatoire','error'); return; }
   if (!categorie){ toast('La catégorie est obligatoire','error'); return; }
   if (!unite)    { toast("L'unité est obligatoire",'error'); return; }
@@ -2806,7 +2940,7 @@ async function saveProduct() {
     } else if (savedUrl) {
       image_url = savedUrl; // garder l'existante
     }
-    const payload={nom,categorie,unite,fournisseur_id,stock_actuel,stock_critique,stock_max,qte_par_unite_commande};
+    const payload={nom,categorie,unite,fournisseur_id,stock_actuel,stock_critique,stock_max,qte_par_unite_commande,code_barre};
     if (image_url !== undefined) payload.image_url = image_url;
     if (id) {
       const {error}=await sb.from('produits').update(payload).eq('id',id);
