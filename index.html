@@ -1625,7 +1625,7 @@ function setCommandeFilter(f) {
   });
   const isStats = f === 'stats';
   document.getElementById('commandes-list-wrap').style.display = isStats ? 'none' : '';
-  document.getElementById('stats-panel').style.display = isStats ? '' : 'none';
+  document.getElementById('stats-panel').style.display = isStats ? 'block' : 'none';
   if (isStats) loadStats();
   else renderCommandes();
 }
