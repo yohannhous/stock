@@ -827,7 +827,7 @@ datalist{display:none;}
             oninput="filterStock(this.value)">
           <button class="search-clr" id="search-stock-clr" onclick="clearSearch('stock')">✕</button>
         </div>
-        <button class="btn btn-secondary btn-sm" style="flex-shrink:0;margin-right:var(--gap);background:var(--card);border:2px solid var(--border)" onclick="scanForStockSearch()" title="Scanner un code-barre"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="2" height="16" fill="currentColor"/><rect x="5" y="4" width="1" height="16" fill="currentColor"/><rect x="7" y="4" width="2" height="16" fill="currentColor"/><rect x="10" y="4" width="1" height="16" fill="currentColor"/><rect x="12" y="4" width="3" height="16" fill="currentColor"/><rect x="16" y="4" width="1" height="16" fill="currentColor"/><rect x="18" y="4" width="2" height="16" fill="currentColor"/><rect x="21" y="4" width="1" height="16" fill="currentColor"/></svg></button>
+        <button class="btn btn-secondary btn-sm scan-btn-native-only" style="flex-shrink:0;margin-right:var(--gap);background:var(--card);border:2px solid var(--border)" onclick="scanForStockSearch()" title="Scanner un code-barre"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="2" height="16" fill="currentColor"/><rect x="5" y="4" width="1" height="16" fill="currentColor"/><rect x="7" y="4" width="2" height="16" fill="currentColor"/><rect x="10" y="4" width="1" height="16" fill="currentColor"/><rect x="12" y="4" width="3" height="16" fill="currentColor"/><rect x="16" y="4" width="1" height="16" fill="currentColor"/><rect x="18" y="4" width="2" height="16" fill="currentColor"/><rect x="21" y="4" width="1" height="16" fill="currentColor"/></svg></button>
       </div>
       <div id="products-grid" class="products-grid"></div>
     </div>
@@ -1136,7 +1136,7 @@ datalist{display:none;}
       <div class="form-group"><label class="form-label">Code-barre <span style="color:var(--txt2);font-size:0.76rem;font-weight:400">(facultatif)</span></label>
         <div class="input-pick-wrap">
           <input id="pf-code-barre" class="form-input" type="text" placeholder="Scanner ou saisir le code">
-          <button type="button" class="input-pick-btn" onclick="scanForProductForm()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="2" height="16" fill="currentColor"/><rect x="5" y="4" width="1" height="16" fill="currentColor"/><rect x="7" y="4" width="2" height="16" fill="currentColor"/><rect x="10" y="4" width="1" height="16" fill="currentColor"/><rect x="12" y="4" width="3" height="16" fill="currentColor"/><rect x="16" y="4" width="1" height="16" fill="currentColor"/><rect x="18" y="4" width="2" height="16" fill="currentColor"/><rect x="21" y="4" width="1" height="16" fill="currentColor"/></svg></button>
+          <button type="button" class="input-pick-btn scan-btn-native-only" onclick="scanForProductForm()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="2" height="16" fill="currentColor"/><rect x="5" y="4" width="1" height="16" fill="currentColor"/><rect x="7" y="4" width="2" height="16" fill="currentColor"/><rect x="10" y="4" width="1" height="16" fill="currentColor"/><rect x="12" y="4" width="3" height="16" fill="currentColor"/><rect x="16" y="4" width="1" height="16" fill="currentColor"/><rect x="18" y="4" width="2" height="16" fill="currentColor"/><rect x="21" y="4" width="1" height="16" fill="currentColor"/></svg></button>
         </div></div>
       <div class="form-group"><label class="form-label">Fournisseur</label>
         <button type="button" class="picker-trigger empty" id="pf-fournisseur-btn" onclick="openFournisseurPicker()">— Aucun —</button>
@@ -4256,6 +4256,12 @@ async function init() {
     document.getElementById('loading-screen').style.display='none';
     document.getElementById('login-screen').style.display='flex';
   }
+}
+
+// Bouton scanner code-barre : uniquement dans l'app Android (scanner natif fiable).
+// Sur le web/PWA, la caméra des navigateurs ne permet pas une mise au point fiable — masqué.
+if (!(window.AndroidScanner && window.AndroidScanner.isAvailable && window.AndroidScanner.isAvailable())) {
+  document.querySelectorAll('.scan-btn-native-only').forEach(el => el.style.display = 'none');
 }
 
 init();
