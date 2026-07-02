@@ -827,7 +827,7 @@ datalist{display:none;}
             oninput="filterStock(this.value)">
           <button class="search-clr" id="search-stock-clr" onclick="clearSearch('stock')">✕</button>
         </div>
-        <button class="btn btn-secondary btn-sm" style="flex-shrink:0;margin-right:var(--gap)" onclick="scanForStockSearch()" title="Scanner un code-barre">📷</button>
+        <button class="btn btn-secondary btn-sm" style="flex-shrink:0;margin-right:var(--gap);background:var(--card);border:2px solid var(--border)" onclick="scanForStockSearch()" title="Scanner un code-barre"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="2" height="16" fill="currentColor"/><rect x="5" y="4" width="1" height="16" fill="currentColor"/><rect x="7" y="4" width="2" height="16" fill="currentColor"/><rect x="10" y="4" width="1" height="16" fill="currentColor"/><rect x="12" y="4" width="3" height="16" fill="currentColor"/><rect x="16" y="4" width="1" height="16" fill="currentColor"/><rect x="18" y="4" width="2" height="16" fill="currentColor"/><rect x="21" y="4" width="1" height="16" fill="currentColor"/></svg></button>
       </div>
       <div id="products-grid" class="products-grid"></div>
     </div>
@@ -1136,7 +1136,7 @@ datalist{display:none;}
       <div class="form-group"><label class="form-label">Code-barre <span style="color:var(--txt2);font-size:0.76rem;font-weight:400">(facultatif)</span></label>
         <div class="input-pick-wrap">
           <input id="pf-code-barre" class="form-input" type="text" placeholder="Scanner ou saisir le code">
-          <button type="button" class="input-pick-btn" onclick="scanForProductForm()">📷</button>
+          <button type="button" class="input-pick-btn" onclick="scanForProductForm()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="2" height="16" fill="currentColor"/><rect x="5" y="4" width="1" height="16" fill="currentColor"/><rect x="7" y="4" width="2" height="16" fill="currentColor"/><rect x="10" y="4" width="1" height="16" fill="currentColor"/><rect x="12" y="4" width="3" height="16" fill="currentColor"/><rect x="16" y="4" width="1" height="16" fill="currentColor"/><rect x="18" y="4" width="2" height="16" fill="currentColor"/><rect x="21" y="4" width="1" height="16" fill="currentColor"/></svg></button>
         </div></div>
       <div class="form-group"><label class="form-label">Fournisseur</label>
         <button type="button" class="picker-trigger empty" id="pf-fournisseur-btn" onclick="openFournisseurPicker()">— Aucun —</button>
@@ -2897,9 +2897,29 @@ let _pinchStartDist = null;
 let _pinchStartZoom = 1;
 let _scannerTimeoutId = null;
 let _torchMode = null;
+let _scannerMode = null;
+let _nativeStream = null;
+let _nativeTrack = null;
+let _nativeVideoEl = null;
+let _nativeDetector = null;
+let _nativeScanning = false;
+
+window._onNativeScanResult = function(code) {
+  const cb = _scannerCallback;
+  _scannerCallback = null;
+  if (cb) cb(code);
+};
+window._onNativeScanCancelled = function() {
+  _scannerCallback = null;
+};
 
 function openScanner(onResult) {
   _scannerCallback = onResult;
+  // App Android : scanner natif (CameraX + ML Kit) — flash/zoom/mise au point réels, sans les limites du navigateur
+  if (window.AndroidScanner && window.AndroidScanner.isAvailable && window.AndroidScanner.isAvailable()) {
+    window.AndroidScanner.scan();
+    return;
+  }
   document.getElementById('scanner-modal').style.display = 'flex';
   document.getElementById('scanner-loading').style.display = 'flex';
   document.getElementById('scanner-loading-text').textContent = 'Ouverture de la caméra…';
@@ -2909,12 +2929,105 @@ function openScanner(onResult) {
   const torchBtn = document.getElementById('scanner-torch-btn');
   torchBtn.style.display = 'none';
   torchBtn.dataset.on = '0';
+  torchBtn.textContent = '🔦';
   if (!_scannerPinchInited) { _initScannerPinchZoom(); _scannerPinchInited = true; }
   if (_scannerTimeoutId) clearTimeout(_scannerTimeoutId);
   _scannerTimeoutId = setTimeout(() => {
     const loadingText = document.getElementById('scanner-loading-text');
     if (loadingText) loadingText.textContent = "Ça prend plus de temps que prévu… vérifie que l'autorisation caméra est bien accordée, ou ferme (✕) et réessaie.";
   }, 6000);
+  // Chrome/Android : décodage natif (ML Kit sous le capot) directement sur le flux vidéo plein résolution,
+  // sans passer par le petit canevas 280×120 qui bridait html5-qrcode
+  if ('BarcodeDetector' in window) {
+    _openNativeWebScanner(onResult);
+  } else {
+    _openHtml5QrcodeScanner(onResult);
+  }
+}
+
+async function _openNativeWebScanner(onResult) {
+  _scannerMode = 'native';
+  const torchBtn = document.getElementById('scanner-torch-btn');
+  try {
+    _nativeStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 }, focusMode: 'continuous' },
+    });
+  } catch(e) {
+    clearTimeout(_scannerTimeoutId);
+    document.getElementById('scanner-loading').style.display = 'none';
+    toast("Impossible d'accéder à la caméra", 'error');
+    closeScannerModal();
+    return;
+  }
+  _nativeTrack = _nativeStream.getVideoTracks()[0];
+  _nativeVideoEl = document.createElement('video');
+  _nativeVideoEl.autoplay = true;
+  _nativeVideoEl.muted = true;
+  _nativeVideoEl.playsInline = true;
+  _nativeVideoEl.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
+  document.getElementById('scanner-reader').appendChild(_nativeVideoEl);
+  _nativeVideoEl.srcObject = _nativeStream;
+  try { await _nativeVideoEl.play(); } catch(e) {}
+
+  clearTimeout(_scannerTimeoutId);
+  document.getElementById('scanner-loading').style.display = 'none';
+  document.getElementById('scanner-hint').style.display = 'block';
+
+  // Réappliquer la mise au point continue après démarrage : certains appareils
+  // ignorent la contrainte initiale mais l'acceptent une fois le flux lancé
+  try { await _nativeTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch(e) {}
+
+  try {
+    const caps = _nativeTrack.getCapabilities ? _nativeTrack.getCapabilities() : {};
+    if (caps.torch) {
+      torchBtn.style.display = 'flex';
+      // Activée par défaut : améliore beaucoup la lecture en faible luminosité
+      await _nativeTrack.applyConstraints({ advanced: [{ torch: true }] });
+      torchBtn.dataset.on = '1';
+      torchBtn.textContent = '💡';
+    }
+    if (caps.zoom && caps.zoom.max > caps.zoom.min) {
+      _scannerZoomCap = {
+        min: caps.zoom.min, max: caps.zoom.max,
+        value: () => _nativeTrack.getSettings().zoom || caps.zoom.min,
+        apply: v => _nativeTrack.applyConstraints({ advanced: [{ zoom: v }] }).catch(() => {}),
+      };
+      // Léger zoom par défaut : aide beaucoup sur les petits codes-barres
+      const defaultZoom = Math.min(caps.zoom.max, caps.zoom.min + (caps.zoom.max - caps.zoom.min) * 0.25);
+      _scannerZoomCap.apply(defaultZoom);
+      document.getElementById('scanner-hint').textContent = "🔍🤏 Rapproche-toi ou pince pour zoomer sur un petit code-barre";
+    }
+  } catch(e) {}
+
+  try {
+    _nativeDetector = new BarcodeDetector({
+      formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'code_93', 'codabar', 'itf'],
+    });
+  } catch(e) {
+    toast('Erreur initialisation scanner', 'error');
+    closeScannerModal();
+    return;
+  }
+  _nativeScanning = true;
+  _nativeScanLoop();
+}
+
+async function _nativeScanLoop() {
+  if (!_nativeScanning || !_nativeVideoEl || _nativeVideoEl.readyState < 2) {
+    if (_nativeScanning) setTimeout(_nativeScanLoop, 120);
+    return;
+  }
+  try {
+    const barcodes = await _nativeDetector.detect(_nativeVideoEl);
+    const found = barcodes.find(b => b.rawValue);
+    if (found) { _onScanSuccess(found.rawValue); return; }
+  } catch(e) {}
+  if (_nativeScanning) setTimeout(_nativeScanLoop, 120);
+}
+
+function _openHtml5QrcodeScanner(onResult) {
+  _scannerMode = 'html5qrcode';
+  const torchBtn = document.getElementById('scanner-torch-btn');
   _html5Scanner = new Html5Qrcode('scanner-reader', {
     formatsToSupport: [
       Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
@@ -2976,10 +3089,10 @@ function openScanner(onResult) {
     try {
       const zoom = _html5Scanner.getRunningTrackCameraCapabilities().zoomFeature();
       if (zoom && zoom.isSupported() && zoom.max() > zoom.min()) {
-        _scannerZoomCap = zoom;
+        _scannerZoomCap = { min: zoom.min(), max: zoom.max(), value: () => zoom.value(), apply: v => zoom.apply(v) };
         // Léger zoom par défaut : aide beaucoup sur les petits codes-barres
-        const defaultZoom = Math.min(zoom.max(), zoom.min() + (zoom.max() - zoom.min()) * 0.25);
-        zoom.apply(defaultZoom);
+        const defaultZoom = Math.min(_scannerZoomCap.max, _scannerZoomCap.min + (_scannerZoomCap.max - _scannerZoomCap.min) * 0.25);
+        _scannerZoomCap.apply(defaultZoom);
         document.getElementById('scanner-hint').textContent = "🔍🤏 Rapproche-toi ou pince pour zoomer sur un petit code-barre";
       }
     } catch(e) {}
@@ -2992,9 +3105,17 @@ function openScanner(onResult) {
 }
 
 function toggleTorch() {
-  if (!_html5Scanner) return;
   const btn = document.getElementById('scanner-torch-btn');
   const on = btn.dataset.on === '1';
+  if (_scannerMode === 'native') {
+    if (!_nativeTrack) return;
+    _nativeTrack.applyConstraints({ advanced: [{ torch: !on }] }).then(() => {
+      btn.dataset.on = on ? '0' : '1';
+      btn.textContent = on ? '🔦' : '💡';
+    }).catch(() => {});
+    return;
+  }
+  if (!_html5Scanner) return;
   if (_torchMode === 'constraints') {
     _html5Scanner.applyVideoConstraints({ torch: !on, advanced: [{ torch: !on }] }).then(() => {
       btn.dataset.on = on ? '0' : '1';
@@ -3029,7 +3150,7 @@ function _initScannerPinchZoom() {
     if (e.touches.length === 2 && _scannerZoomCap && _pinchStartDist) {
       e.preventDefault();
       const ratio = _touchDist(e.touches) / _pinchStartDist;
-      const nv = Math.min(_scannerZoomCap.max(), Math.max(_scannerZoomCap.min(), _pinchStartZoom * ratio));
+      const nv = Math.min(_scannerZoomCap.max, Math.max(_scannerZoomCap.min, _pinchStartZoom * ratio));
       _scannerZoomCap.apply(nv);
     }
   }, { passive: false });
@@ -3050,6 +3171,12 @@ function closeScannerModal() {
   _scannerZoomCap = null;
   _pinchStartDist = null;
   _torchMode = null;
+  _scannerMode = null;
+  _nativeScanning = false;
+  _nativeDetector = null;
+  if (_nativeStream) { _nativeStream.getTracks().forEach(t => t.stop()); _nativeStream = null; }
+  _nativeTrack = null;
+  if (_nativeVideoEl) { _nativeVideoEl.remove(); _nativeVideoEl = null; }
   if (_html5Scanner) {
     const s = _html5Scanner;
     _html5Scanner = null;
