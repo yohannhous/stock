@@ -2896,6 +2896,7 @@ let _scannerPinchInited = false;
 let _pinchStartDist = null;
 let _pinchStartZoom = 1;
 let _scannerTimeoutId = null;
+let _torchMode = null;
 
 function openScanner(onResult) {
   _scannerCallback = onResult;
@@ -2928,8 +2929,8 @@ function openScanner(onResult) {
     { facingMode: 'environment' },
     {
       fps: 15,
-      qrbox: { width: 300, height: 140 },
-      aspectRatio: 1.6,
+      qrbox: { width: 320, height: 220 },
+      aspectRatio: 1.0,
       disableFlip: true,
       videoConstraints: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 }, focusMode: 'continuous' },
     },
@@ -2938,17 +2939,35 @@ function openScanner(onResult) {
   ).then(() => {
     clearTimeout(_scannerTimeoutId);
     document.getElementById('scanner-loading').style.display = 'none';
+    _torchMode = null;
     try {
       const caps = _html5Scanner.getRunningTrackCameraCapabilities();
       const torch = caps.torchFeature();
       if (torch && torch.isSupported()) {
+        _torchMode = 'caps';
         torchBtn.style.display = 'flex';
         // Activée par défaut : améliore beaucoup la lecture en faible luminosité
         torch.apply(true);
         torchBtn.dataset.on = '1';
         torchBtn.textContent = '💡';
+      } else {
+        throw new Error('caps torch non supporté');
       }
-    } catch(e) {}
+    } catch(e) {
+      // Repli : certains appareils ne remontent pas le flash via l'API Capabilities
+      // mais l'acceptent quand même via applyVideoConstraints (méthode alternative documentée par html5-qrcode)
+      try {
+        const settings = _html5Scanner.getRunningTrackSettings();
+        if (settings && 'torch' in settings) {
+          _html5Scanner.applyVideoConstraints({ torch: true, advanced: [{ torch: true }] }).then(() => {
+            _torchMode = 'constraints';
+            torchBtn.style.display = 'flex';
+            torchBtn.dataset.on = '1';
+            torchBtn.textContent = '💡';
+          }).catch(() => {});
+        }
+      } catch(e2) {}
+    }
     try {
       const zoom = _html5Scanner.getRunningTrackCameraCapabilities().zoomFeature();
       if (zoom && zoom.isSupported() && zoom.max() > zoom.min()) {
@@ -2969,10 +2988,17 @@ function openScanner(onResult) {
 
 function toggleTorch() {
   if (!_html5Scanner) return;
+  const btn = document.getElementById('scanner-torch-btn');
+  const on = btn.dataset.on === '1';
+  if (_torchMode === 'constraints') {
+    _html5Scanner.applyVideoConstraints({ torch: !on, advanced: [{ torch: !on }] }).then(() => {
+      btn.dataset.on = on ? '0' : '1';
+      btn.textContent = on ? '🔦' : '💡';
+    }).catch(() => {});
+    return;
+  }
   try {
     const torch = _html5Scanner.getRunningTrackCameraCapabilities().torchFeature();
-    const btn = document.getElementById('scanner-torch-btn');
-    const on = btn.dataset.on === '1';
     torch.apply(!on);
     btn.dataset.on = on ? '0' : '1';
     btn.textContent = on ? '🔦' : '💡';
@@ -3018,6 +3044,7 @@ function closeScannerModal() {
   clearTimeout(_scannerTimeoutId);
   _scannerZoomCap = null;
   _pinchStartDist = null;
+  _torchMode = null;
   if (_html5Scanner) {
     const s = _html5Scanner;
     _html5Scanner = null;
