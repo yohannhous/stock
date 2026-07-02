@@ -1256,7 +1256,12 @@ datalist{display:none;}
       <button onclick="closeScannerModal()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer">✕</button>
     </div>
   </div>
-  <div id="scanner-reader" style="flex:1;width:100%"></div>
+  <div id="scanner-reader" style="flex:1;width:100%;position:relative">
+    <div id="scanner-loading" style="position:absolute;inset:0;z-index:2;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#000">
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+      <div style="color:rgba(255,255,255,0.6);font-size:0.82rem">Ouverture de la caméra…</div>
+    </div>
+  </div>
 </div>
 
 <!-- Toasts -->
@@ -2889,6 +2894,7 @@ let _scannerCallback = null;
 function openScanner(onResult) {
   _scannerCallback = onResult;
   document.getElementById('scanner-modal').style.display = 'flex';
+  document.getElementById('scanner-loading').style.display = 'flex';
   const torchBtn = document.getElementById('scanner-torch-btn');
   torchBtn.style.display = 'none';
   torchBtn.dataset.on = '0';
@@ -2910,16 +2916,24 @@ function openScanner(onResult) {
       qrbox: { width: 300, height: 140 },
       aspectRatio: 1.6,
       disableFlip: true,
-      videoConstraints: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      videoConstraints: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 }, focusMode: 'continuous' },
     },
     decodedText => _onScanSuccess(decodedText),
     () => {}
   ).then(() => {
+    document.getElementById('scanner-loading').style.display = 'none';
     try {
       const torch = _html5Scanner.getRunningTrackCameraCapabilities().torchFeature();
-      if (torch && torch.isSupported()) torchBtn.style.display = 'flex';
+      if (torch && torch.isSupported()) {
+        torchBtn.style.display = 'flex';
+        // Activée par défaut : améliore beaucoup la lecture en faible luminosité
+        torch.apply(true);
+        torchBtn.dataset.on = '1';
+        torchBtn.textContent = '💡';
+      }
     } catch(e) {}
   }).catch(() => {
+    document.getElementById('scanner-loading').style.display = 'none';
     toast("Impossible d'accéder à la caméra", 'error');
     closeScannerModal();
   });
