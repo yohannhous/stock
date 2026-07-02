@@ -1257,9 +1257,9 @@ datalist{display:none;}
     </div>
   </div>
   <div id="scanner-reader" style="flex:1;width:100%;position:relative">
-    <div id="scanner-loading" style="position:absolute;inset:0;z-index:2;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#000">
+    <div id="scanner-loading" style="position:absolute;inset:0;z-index:2;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#000;padding:0 30px;text-align:center">
       <div class="loading-dots"><span></span><span></span><span></span></div>
-      <div style="color:rgba(255,255,255,0.6);font-size:0.82rem">Ouverture de la caméra…</div>
+      <div id="scanner-loading-text" style="color:rgba(255,255,255,0.6);font-size:0.82rem">Ouverture de la caméra…</div>
     </div>
   </div>
   <div id="scanner-zoom-hint" style="display:none;color:rgba(255,255,255,0.55);font-size:0.78rem;text-align:center;padding:10px 16px;padding-bottom:max(10px,env(safe-area-inset-bottom))">🤏 Pince pour zoomer sur un petit code-barre</div>
@@ -2895,17 +2895,24 @@ let _scannerZoomCap = null;
 let _scannerPinchInited = false;
 let _pinchStartDist = null;
 let _pinchStartZoom = 1;
+let _scannerTimeoutId = null;
 
 function openScanner(onResult) {
   _scannerCallback = onResult;
   document.getElementById('scanner-modal').style.display = 'flex';
   document.getElementById('scanner-loading').style.display = 'flex';
+  document.getElementById('scanner-loading-text').textContent = 'Ouverture de la caméra…';
   document.getElementById('scanner-zoom-hint').style.display = 'none';
   _scannerZoomCap = null;
   const torchBtn = document.getElementById('scanner-torch-btn');
   torchBtn.style.display = 'none';
   torchBtn.dataset.on = '0';
   if (!_scannerPinchInited) { _initScannerPinchZoom(); _scannerPinchInited = true; }
+  if (_scannerTimeoutId) clearTimeout(_scannerTimeoutId);
+  _scannerTimeoutId = setTimeout(() => {
+    const loadingText = document.getElementById('scanner-loading-text');
+    if (loadingText) loadingText.textContent = "Ça prend plus de temps que prévu… vérifie que l'autorisation caméra est bien accordée, ou ferme (✕) et réessaie.";
+  }, 6000);
   _html5Scanner = new Html5Qrcode('scanner-reader', {
     formatsToSupport: [
       Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
@@ -2924,11 +2931,12 @@ function openScanner(onResult) {
       qrbox: { width: 300, height: 140 },
       aspectRatio: 1.6,
       disableFlip: true,
-      videoConstraints: { facingMode: 'environment', width: { ideal: 2560 }, height: { ideal: 1440 }, focusMode: 'continuous' },
+      videoConstraints: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 }, focusMode: 'continuous' },
     },
     decodedText => _onScanSuccess(decodedText),
     () => {}
   ).then(() => {
+    clearTimeout(_scannerTimeoutId);
     document.getElementById('scanner-loading').style.display = 'none';
     try {
       const caps = _html5Scanner.getRunningTrackCameraCapabilities();
@@ -2952,6 +2960,7 @@ function openScanner(onResult) {
       }
     } catch(e) {}
   }).catch(() => {
+    clearTimeout(_scannerTimeoutId);
     document.getElementById('scanner-loading').style.display = 'none';
     toast("Impossible d'accéder à la caméra", 'error');
     closeScannerModal();
@@ -3006,6 +3015,7 @@ function _onScanSuccess(text) {
 
 function closeScannerModal() {
   document.getElementById('scanner-modal').style.display = 'none';
+  clearTimeout(_scannerTimeoutId);
   _scannerZoomCap = null;
   _pinchStartDist = null;
   if (_html5Scanner) {
