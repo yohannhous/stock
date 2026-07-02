@@ -2975,6 +2975,13 @@ async function _openNativeWebScanner(onResult) {
 
   try {
     const caps = _nativeTrack.getCapabilities ? _nativeTrack.getCapabilities() : {};
+    // DIAGNOSTIC TEMPORAIRE — à retirer une fois qu'on sait ce que l'appareil supporte réellement
+    alert('DIAG caméra :\n' + JSON.stringify({
+      focusMode: caps.focusMode || null,
+      focusDistance: caps.focusDistance || null,
+      zoom: caps.zoom || null,
+      torch: caps.torch || null,
+    }, null, 1));
     if (caps.torch) {
       torchBtn.style.display = 'flex';
       // Activée par défaut : améliore beaucoup la lecture en faible luminosité
