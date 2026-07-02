@@ -1262,6 +1262,11 @@ datalist{display:none;}
       <div id="scanner-loading-text" style="color:rgba(255,255,255,0.6);font-size:0.82rem">Ouverture de la caméra…</div>
     </div>
   </div>
+  <div id="scanner-focus-ctrl" style="display:none;align-items:center;justify-content:center;gap:16px;padding:10px 16px">
+    <button id="scanner-focus-minus" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:38px;height:38px;border-radius:50%;font-size:1.3rem;font-weight:700;cursor:pointer">−</button>
+    <span style="color:#fff;font-size:0.82rem">🔧 Netteté — ajuste jusqu'à ce que ce soit net</span>
+    <button id="scanner-focus-plus" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:38px;height:38px;border-radius:50%;font-size:1.3rem;font-weight:700;cursor:pointer">+</button>
+  </div>
   <div id="scanner-hint" style="display:none;color:rgba(255,255,255,0.55);font-size:0.78rem;text-align:center;padding:10px 16px;padding-bottom:max(10px,env(safe-area-inset-bottom))">🔍 Rapproche-toi jusqu'à ce que le code-barre remplisse bien le cadre</div>
 </div>
 
@@ -2903,6 +2908,20 @@ let _nativeTrack = null;
 let _nativeVideoEl = null;
 let _nativeDetector = null;
 let _nativeScanning = false;
+let _manualFocusValue = 0;
+let _manualFocusStep = 1;
+let _manualFocusInited = false;
+
+function _adjustManualFocus(delta) {
+  if (!_nativeTrack) return;
+  _manualFocusValue = Math.max(0, _manualFocusValue + delta);
+  _nativeTrack.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: _manualFocusValue }] }).catch(() => {});
+}
+
+function _initManualFocusUI() {
+  document.getElementById('scanner-focus-minus').addEventListener('click', () => _adjustManualFocus(-_manualFocusStep));
+  document.getElementById('scanner-focus-plus').addEventListener('click', () => _adjustManualFocus(_manualFocusStep));
+}
 
 window._onNativeScanResult = function(code) {
   const cb = _scannerCallback;
@@ -2930,7 +2949,10 @@ function openScanner(onResult) {
   torchBtn.style.display = 'none';
   torchBtn.dataset.on = '0';
   torchBtn.textContent = '🔦';
+  document.getElementById('scanner-focus-ctrl').style.display = 'none';
+  _manualFocusValue = 0;
   if (!_scannerPinchInited) { _initScannerPinchZoom(); _scannerPinchInited = true; }
+  if (!_manualFocusInited) { _initManualFocusUI(); _manualFocusInited = true; }
   if (_scannerTimeoutId) clearTimeout(_scannerTimeoutId);
   _scannerTimeoutId = setTimeout(() => {
     const loadingText = document.getElementById('scanner-loading-text');
@@ -2975,13 +2997,6 @@ async function _openNativeWebScanner(onResult) {
 
   try {
     const caps = _nativeTrack.getCapabilities ? _nativeTrack.getCapabilities() : {};
-    // DIAGNOSTIC TEMPORAIRE — à retirer une fois qu'on sait ce que l'appareil supporte réellement
-    alert('DIAG caméra :\n' + JSON.stringify({
-      focusMode: caps.focusMode || null,
-      focusDistance: caps.focusDistance || null,
-      zoom: caps.zoom || null,
-      torch: caps.torch || null,
-    }, null, 1));
     if (caps.torch) {
       torchBtn.style.display = 'flex';
       // Activée par défaut : améliore beaucoup la lecture en faible luminosité
@@ -2989,12 +3004,15 @@ async function _openNativeWebScanner(onResult) {
       torchBtn.dataset.on = '1';
       torchBtn.textContent = '💡';
     }
-    // Mise au point : sur cet appareil, l'autofocus continu ne s'adapte pas bien de très près.
-    // On force une mise au point manuelle fixée au plus proche (mode macro), idéal pour scanner
-    // un code-barre rapproché. Repli sur "continuous" si le mode manuel/focusDistance n'est pas dispo.
+    // Mise au point : certains appareils ne supportent QUE le mode manuel (pas "continuous"),
+    // avec des bornes focusDistance non fiables (valeurs aberrantes constatées sur certains
+    // pilotes Android). Impossible de deviner la bonne valeur à l'aveugle : on affiche un
+    // réglage +/- pour que l'utilisateur ajuste lui-même en regardant l'image en direct.
     if (caps.focusMode && caps.focusMode.includes('manual') && caps.focusDistance) {
-      await _nativeTrack.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: caps.focusDistance.min }] });
-    } else {
+      _manualFocusStep = Math.max(caps.focusDistance.step || 0.1, 0.5);
+      _manualFocusValue = 0;
+      document.getElementById('scanner-focus-ctrl').style.display = 'flex';
+    } else if (caps.focusMode && caps.focusMode.includes('continuous')) {
       try { await _nativeTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch(e2) {}
     }
     // Zoom : laissé disponible au pincement (pratique si besoin), mais PAS appliqué par défaut —
