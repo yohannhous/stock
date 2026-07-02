@@ -1262,7 +1262,7 @@ datalist{display:none;}
       <div id="scanner-loading-text" style="color:rgba(255,255,255,0.6);font-size:0.82rem">Ouverture de la caméra…</div>
     </div>
   </div>
-  <div id="scanner-zoom-hint" style="display:none;color:rgba(255,255,255,0.55);font-size:0.78rem;text-align:center;padding:10px 16px;padding-bottom:max(10px,env(safe-area-inset-bottom))">🤏 Pince pour zoomer sur un petit code-barre</div>
+  <div id="scanner-hint" style="display:none;color:rgba(255,255,255,0.55);font-size:0.78rem;text-align:center;padding:10px 16px;padding-bottom:max(10px,env(safe-area-inset-bottom))">🔍 Rapproche-toi jusqu'à ce que le code-barre remplisse bien le cadre</div>
 </div>
 
 <!-- Toasts -->
@@ -2903,7 +2903,8 @@ function openScanner(onResult) {
   document.getElementById('scanner-modal').style.display = 'flex';
   document.getElementById('scanner-loading').style.display = 'flex';
   document.getElementById('scanner-loading-text').textContent = 'Ouverture de la caméra…';
-  document.getElementById('scanner-zoom-hint').style.display = 'none';
+  document.getElementById('scanner-hint').style.display = 'none';
+  document.getElementById('scanner-hint').textContent = "🔍 Rapproche-toi jusqu'à ce que le code-barre remplisse bien le cadre";
   _scannerZoomCap = null;
   const torchBtn = document.getElementById('scanner-torch-btn');
   torchBtn.style.display = 'none';
@@ -2929,8 +2930,8 @@ function openScanner(onResult) {
     { facingMode: 'environment' },
     {
       fps: 15,
-      qrbox: { width: 320, height: 220 },
-      aspectRatio: 1.0,
+      qrbox: { width: 280, height: 120 },
+      aspectRatio: 1.3,
       disableFlip: true,
       videoConstraints: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 }, focusMode: 'continuous' },
     },
@@ -2939,6 +2940,7 @@ function openScanner(onResult) {
   ).then(() => {
     clearTimeout(_scannerTimeoutId);
     document.getElementById('scanner-loading').style.display = 'none';
+    document.getElementById('scanner-hint').style.display = 'block';
     _torchMode = null;
     try {
       const caps = _html5Scanner.getRunningTrackCameraCapabilities();
@@ -2975,7 +2977,7 @@ function openScanner(onResult) {
         // Léger zoom par défaut : aide beaucoup sur les petits codes-barres
         const defaultZoom = Math.min(zoom.max(), zoom.min() + (zoom.max() - zoom.min()) * 0.25);
         zoom.apply(defaultZoom);
-        document.getElementById('scanner-zoom-hint').style.display = 'block';
+        document.getElementById('scanner-hint').textContent = "🔍🤏 Rapproche-toi ou pince pour zoomer sur un petit code-barre";
       }
     } catch(e) {}
   }).catch(() => {
