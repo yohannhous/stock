@@ -1242,9 +1242,19 @@ datalist{display:none;}
 <div id="scanner-modal" style="display:none;position:fixed;inset:0;background:#000;z-index:800;flex-direction:column">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;padding-top:max(14px,env(safe-area-inset-top))">
     <div style="color:#fff;font-size:0.95rem;font-weight:600">📷 Scanner un code-barre</div>
-    <button onclick="closeScannerModal()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer">✕</button>
+    <div style="display:flex;gap:8px">
+      <button id="scanner-torch-btn" onclick="toggleTorch()" data-on="0" style="display:none;background:rgba(255,255,255,0.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer">🔦</button>
+      <button onclick="closeScannerModal()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer">✕</button>
+    </div>
   </div>
   <div id="scanner-reader" style="flex:1;width:100%"></div>
+  <div style="padding:14px 16px;padding-bottom:max(14px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px">
+    <button type="button" id="scanner-manual-toggle" onclick="_toggleManualBarcode()" style="background:none;border:none;color:rgba(255,255,255,0.75);font-size:0.85rem;text-decoration:underline;cursor:pointer;padding:4px">⌨️ Saisir le code manuellement</button>
+    <div id="scanner-manual-wrap" style="display:none;gap:8px">
+      <input id="scanner-manual-input" type="text" inputmode="numeric" placeholder="Code-barre…" style="flex:1;padding:12px;border-radius:12px;border:1.5px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:#fff;font-size:0.95rem">
+      <button type="button" onclick="_confirmManualBarcode()" style="padding:12px 18px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-weight:600;cursor:pointer">OK</button>
+    </div>
+  </div>
 </div>
 
 <!-- Toasts -->
@@ -2798,16 +2808,66 @@ let _scannerCallback = null;
 function openScanner(onResult) {
   _scannerCallback = onResult;
   document.getElementById('scanner-modal').style.display = 'flex';
-  _html5Scanner = new Html5Qrcode('scanner-reader');
+  document.getElementById('scanner-manual-wrap').style.display = 'none';
+  document.getElementById('scanner-manual-input').value = '';
+  const torchBtn = document.getElementById('scanner-torch-btn');
+  torchBtn.style.display = 'none';
+  torchBtn.dataset.on = '0';
+  _html5Scanner = new Html5Qrcode('scanner-reader', {
+    formatsToSupport: [
+      Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.CODE_93, Html5QrcodeSupportedFormats.CODABAR,
+      Html5QrcodeSupportedFormats.ITF,
+    ],
+    experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+    verbose: false,
+  });
   _html5Scanner.start(
     { facingMode: 'environment' },
-    { fps: 10, qrbox: { width: 260, height: 160 } },
+    {
+      fps: 15,
+      qrbox: { width: 300, height: 140 },
+      aspectRatio: 1.6,
+      disableFlip: true,
+      videoConstraints: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+    },
     decodedText => _onScanSuccess(decodedText),
     () => {}
-  ).catch(() => {
+  ).then(() => {
+    try {
+      const torch = _html5Scanner.getRunningTrackCameraCapabilities().torchFeature();
+      if (torch && torch.isSupported()) torchBtn.style.display = 'flex';
+    } catch(e) {}
+  }).catch(() => {
     toast("Impossible d'accéder à la caméra", 'error');
     closeScannerModal();
   });
+}
+
+function toggleTorch() {
+  if (!_html5Scanner) return;
+  try {
+    const torch = _html5Scanner.getRunningTrackCameraCapabilities().torchFeature();
+    const btn = document.getElementById('scanner-torch-btn');
+    const on = btn.dataset.on === '1';
+    torch.apply(!on);
+    btn.dataset.on = on ? '0' : '1';
+    btn.textContent = on ? '🔦' : '💡';
+  } catch(e) {}
+}
+
+function _toggleManualBarcode() {
+  const wrap = document.getElementById('scanner-manual-wrap');
+  wrap.style.display = wrap.style.display === 'none' ? 'flex' : 'none';
+  if (wrap.style.display === 'flex') document.getElementById('scanner-manual-input').focus();
+}
+
+function _confirmManualBarcode() {
+  const val = document.getElementById('scanner-manual-input').value.trim();
+  if (!val) return;
+  _onScanSuccess(val);
 }
 
 function _onScanSuccess(text) {
