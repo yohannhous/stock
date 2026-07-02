@@ -3006,12 +3006,14 @@ async function _openNativeWebScanner(onResult) {
     }
     // Mise au point : certains appareils ne supportent QUE le mode manuel (pas "continuous"),
     // avec des bornes focusDistance non fiables (valeurs aberrantes constatées sur certains
-    // pilotes Android). Impossible de deviner la bonne valeur à l'aveugle : on affiche un
-    // réglage +/- pour que l'utilisateur ajuste lui-même en regardant l'image en direct.
+    // pilotes Android). La distance est exprimée en mètres (spec W3C) : on démarre donc à 0.05
+    // (5 cm), la distance recommandée pour scanner un petit code-barre, avec un réglage +/-
+    // fin pour ajuster si besoin selon la façon dont le téléphone est tenu.
     if (caps.focusMode && caps.focusMode.includes('manual') && caps.focusDistance) {
-      _manualFocusStep = Math.max(caps.focusDistance.step || 0.1, 0.5);
-      _manualFocusValue = 0;
+      _manualFocusStep = 0.01;
+      _manualFocusValue = 0.05;
       document.getElementById('scanner-focus-ctrl').style.display = 'flex';
+      try { await _nativeTrack.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: _manualFocusValue }] }); } catch(e2) {}
     } else if (caps.focusMode && caps.focusMode.includes('continuous')) {
       try { await _nativeTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch(e2) {}
     }
