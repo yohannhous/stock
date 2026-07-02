@@ -2950,7 +2950,7 @@ async function _openNativeWebScanner(onResult) {
   const torchBtn = document.getElementById('scanner-torch-btn');
   try {
     _nativeStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 }, focusMode: 'continuous' },
+      video: { facingMode: 'environment', width: { ideal: 2560 }, height: { ideal: 1440 }, focusMode: 'continuous' },
     });
   } catch(e) {
     clearTimeout(_scannerTimeoutId);
