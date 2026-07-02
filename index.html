@@ -2907,6 +2907,7 @@ let _nativeStream = null;
 let _nativeTrack = null;
 let _nativeVideoEl = null;
 let _nativeDetector = null;
+let _nativeImageCapture = null;
 let _nativeScanning = false;
 let _manualFocusValue = 0;
 let _manualFocusStep = 1;
@@ -3004,18 +3005,13 @@ async function _openNativeWebScanner(onResult) {
       torchBtn.dataset.on = '1';
       torchBtn.textContent = '💡';
     }
-    // Mise au point : certains appareils ne supportent QUE le mode manuel (pas "continuous"),
-    // avec des bornes focusDistance non fiables (valeurs aberrantes constatées sur certains
-    // pilotes Android). La distance est exprimée en mètres (spec W3C) : on démarre donc à 0.05
-    // (5 cm), la distance recommandée pour scanner un petit code-barre, avec un réglage +/-
-    // fin pour ajuster si besoin selon la façon dont le téléphone est tenu.
+    // Mise au point : on laisse la caméra dans son état par défaut ici (ni manuel ni continuous
+    // forcés), pour que la capture photo ci-dessous (takePhoto) puisse déclencher son propre
+    // cycle de mise au point matérielle. Réglage manuel +/- gardé en repli si besoin.
     if (caps.focusMode && caps.focusMode.includes('manual') && caps.focusDistance) {
       _manualFocusStep = 0.01;
       _manualFocusValue = 0.05;
       document.getElementById('scanner-focus-ctrl').style.display = 'flex';
-      try { await _nativeTrack.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: _manualFocusValue }] }); } catch(e2) {}
-    } else if (caps.focusMode && caps.focusMode.includes('continuous')) {
-      try { await _nativeTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch(e2) {}
     }
     // Zoom : laissé disponible au pincement (pratique si besoin), mais PAS appliqué par défaut —
     // c'est un zoom numérique sur cet appareil (recadrage + agrandissement), donc ça perd en qualité
@@ -3038,6 +3034,12 @@ async function _openNativeWebScanner(onResult) {
     closeScannerModal();
     return;
   }
+  // ImageCapture.takePhoto() passe par le pipeline "prise de photo" du téléphone (déclencheur),
+  // qui fait généralement une vraie mise au point matérielle avant de capturer — contrairement
+  // au flux vidéo continu qui, sur certains appareils, ne refait jamais le point correctement.
+  try {
+    if ('ImageCapture' in window) _nativeImageCapture = new ImageCapture(_nativeTrack);
+  } catch(e) { _nativeImageCapture = null; }
   _nativeScanning = true;
   _nativeScanLoop();
 }
@@ -3048,11 +3050,17 @@ async function _nativeScanLoop() {
     return;
   }
   try {
-    const barcodes = await _nativeDetector.detect(_nativeVideoEl);
+    let source = _nativeVideoEl;
+    if (_nativeImageCapture) {
+      try { source = await _nativeImageCapture.takePhoto(); } catch(e) { source = _nativeVideoEl; }
+    }
+    const barcodes = await _nativeDetector.detect(source);
     const found = barcodes.find(b => b.rawValue);
     if (found) { _onScanSuccess(found.rawValue); return; }
   } catch(e) {}
-  if (_nativeScanning) setTimeout(_nativeScanLoop, 120);
+  // takePhoto() passe par le déclencheur (plus lent qu'une simple analyse vidéo) : on espace
+  // davantage les tentatives pour laisser le temps à la mise au point de se faire correctement
+  if (_nativeScanning) setTimeout(_nativeScanLoop, _nativeImageCapture ? 900 : 120);
 }
 
 function _openHtml5QrcodeScanner(onResult) {
@@ -3202,6 +3210,7 @@ function closeScannerModal() {
   _scannerMode = null;
   _nativeScanning = false;
   _nativeDetector = null;
+  _nativeImageCapture = null;
   if (_nativeStream) { _nativeStream.getTracks().forEach(t => t.stop()); _nativeStream = null; }
   _nativeTrack = null;
   if (_nativeVideoEl) { _nativeVideoEl.remove(); _nativeVideoEl = null; }
