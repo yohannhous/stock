@@ -1931,6 +1931,8 @@ async function scanInvoice(input) {
       const l = STATE.currentCommandeLines.find(l => l.produit_id === r.produit_id);
       if (l) {
         l._recue = r.quantite_recue;
+        l._recueIA = r.quantite_recue;
+        l._fromIA = true;
         continue;
       }
       const p = STATE.produits.find(p => p.id === r.produit_id);
@@ -1941,7 +1943,7 @@ async function scanInvoice(input) {
           .select().single();
         if (error) throw error;
         STATE.currentCommandeLines.push({
-          ...data, _recue: r.quantite_recue,
+          ...data, _recue: r.quantite_recue, _recueIA: r.quantite_recue, _fromIA: true,
           produits: { nom: p.nom, unite: p.unite, fournisseur_id: p.fournisseur_id, qte_par_unite_commande: p.qte_par_unite_commande },
         });
         nbAjoutes++;
@@ -1969,6 +1971,16 @@ async function validerReception(cmdId) {
           await sb.from('produits').update({stock_actuel:nv}).eq('id',l.produit_id);
           p.stock_actuel=nv;
         }
+      }
+      // L'utilisateur a corrigé une quantité suggérée par le scan de facture : on retient
+      // l'écart pour aider l'IA à mieux deviner la prochaine fois pour ce produit
+      if (l._fromIA && l._recueIA !== undefined && l._recueIA !== l._recue) {
+        try {
+          await sb.from('produit_conversions_facture').upsert(
+            { produit_id: l.produit_id, derniere_qte_ia: l._recueIA, derniere_qte_confirmee: l._recue },
+            { onConflict: 'produit_id' }
+          );
+        } catch(e) {}
       }
     }
     const statut='recue_complete';
