@@ -1911,11 +1911,13 @@ async function scanInvoice(input) {
       produit_id: l.produit_id,
       nom: l.produits?.nom || '',
       quantite_commandee: l.quantite_commandee,
+      unite: l.produits?.unite || 'unité',
+      qte_par_unite_commande: l.produits?.qte_par_unite_commande || 1,
     }));
     const dejaIds = STATE.currentCommandeLines.map(l => l.produit_id);
     const catalogue = STATE.produits
       .filter(p => p.actif && p.fournisseur_id === STATE.currentCommandeFournisseurId && !dejaIds.includes(p.id))
-      .map(p => ({ id: p.id, nom: p.nom }));
+      .map(p => ({ id: p.id, nom: p.nom, unite: p.unite || 'unité', qte_par_unite_commande: p.qte_par_unite_commande || 1 }));
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(`${sbUrl}/functions/v1/scan-facture`, {
       method: 'POST',
