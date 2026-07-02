@@ -2973,10 +2973,6 @@ async function _openNativeWebScanner(onResult) {
   document.getElementById('scanner-loading').style.display = 'none';
   document.getElementById('scanner-hint').style.display = 'block';
 
-  // Réappliquer la mise au point continue après démarrage : certains appareils
-  // ignorent la contrainte initiale mais l'acceptent une fois le flux lancé
-  try { await _nativeTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch(e) {}
-
   try {
     const caps = _nativeTrack.getCapabilities ? _nativeTrack.getCapabilities() : {};
     if (caps.torch) {
@@ -2986,16 +2982,23 @@ async function _openNativeWebScanner(onResult) {
       torchBtn.dataset.on = '1';
       torchBtn.textContent = '💡';
     }
+    // Mise au point : sur cet appareil, l'autofocus continu ne s'adapte pas bien de très près.
+    // On force une mise au point manuelle fixée au plus proche (mode macro), idéal pour scanner
+    // un code-barre rapproché. Repli sur "continuous" si le mode manuel/focusDistance n'est pas dispo.
+    if (caps.focusMode && caps.focusMode.includes('manual') && caps.focusDistance) {
+      await _nativeTrack.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: caps.focusDistance.min }] });
+    } else {
+      try { await _nativeTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch(e2) {}
+    }
+    // Zoom : laissé disponible au pincement (pratique si besoin), mais PAS appliqué par défaut —
+    // c'est un zoom numérique sur cet appareil (recadrage + agrandissement), donc ça perd en qualité
+    // plutôt que d'aider. Mieux vaut se rapprocher physiquement.
     if (caps.zoom && caps.zoom.max > caps.zoom.min) {
       _scannerZoomCap = {
         min: caps.zoom.min, max: caps.zoom.max,
         value: () => _nativeTrack.getSettings().zoom || caps.zoom.min,
         apply: v => _nativeTrack.applyConstraints({ advanced: [{ zoom: v }] }).catch(() => {}),
       };
-      // Léger zoom par défaut : aide beaucoup sur les petits codes-barres
-      const defaultZoom = Math.min(caps.zoom.max, caps.zoom.min + (caps.zoom.max - caps.zoom.min) * 0.25);
-      _scannerZoomCap.apply(defaultZoom);
-      document.getElementById('scanner-hint').textContent = "🔍🤏 Rapproche-toi ou pince pour zoomer sur un petit code-barre";
     }
   } catch(e) {}
 
@@ -3089,10 +3092,8 @@ function _openHtml5QrcodeScanner(onResult) {
     try {
       const zoom = _html5Scanner.getRunningTrackCameraCapabilities().zoomFeature();
       if (zoom && zoom.isSupported() && zoom.max() > zoom.min()) {
+        // Laissé disponible au pincement seulement — pas appliqué par défaut (zoom numérique = perte de qualité)
         _scannerZoomCap = { min: zoom.min(), max: zoom.max(), value: () => zoom.value(), apply: v => zoom.apply(v) };
-        // Léger zoom par défaut : aide beaucoup sur les petits codes-barres
-        const defaultZoom = Math.min(_scannerZoomCap.max, _scannerZoomCap.min + (_scannerZoomCap.max - _scannerZoomCap.min) * 0.25);
-        _scannerZoomCap.apply(defaultZoom);
         document.getElementById('scanner-hint').textContent = "🔍🤏 Rapproche-toi ou pince pour zoomer sur un petit code-barre";
       }
     } catch(e) {}
