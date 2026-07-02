@@ -2942,6 +2942,9 @@ function openScanner(onResult) {
     document.getElementById('scanner-loading').style.display = 'none';
     document.getElementById('scanner-hint').style.display = 'block';
     _torchMode = null;
+    // Réappliquer la mise au point continue après démarrage : certains appareils
+    // ignorent la contrainte initiale mais l'acceptent une fois le flux lancé
+    try { _html5Scanner.applyVideoConstraints({ focusMode: 'continuous', advanced: [{ focusMode: 'continuous' }] }).catch(() => {}); } catch(e) {}
     try {
       const caps = _html5Scanner.getRunningTrackCameraCapabilities();
       const torch = caps.torchFeature();
