@@ -617,6 +617,7 @@ datalist{display:none;}
 }
 .search-input:focus{border-color:var(--accent);}
 .search-input::placeholder{color:var(--txt2);}
+.search-input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;}
 .search-ico{
   position:absolute;left:calc(var(--gap) + 12px);top:50%;transform:translateY(-50%);
   color:var(--txt2);font-size:1rem;pointer-events:none;
@@ -1248,13 +1249,6 @@ datalist{display:none;}
     </div>
   </div>
   <div id="scanner-reader" style="flex:1;width:100%"></div>
-  <div style="padding:14px 16px;padding-bottom:max(14px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px">
-    <button type="button" id="scanner-manual-toggle" onclick="_toggleManualBarcode()" style="background:none;border:none;color:rgba(255,255,255,0.75);font-size:0.85rem;text-decoration:underline;cursor:pointer;padding:4px">⌨️ Saisir le code manuellement</button>
-    <div id="scanner-manual-wrap" style="display:none;gap:8px">
-      <input id="scanner-manual-input" type="text" inputmode="numeric" placeholder="Code-barre…" style="flex:1;padding:12px;border-radius:12px;border:1.5px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:#fff;font-size:0.95rem">
-      <button type="button" onclick="_confirmManualBarcode()" style="padding:12px 18px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-weight:600;cursor:pointer">OK</button>
-    </div>
-  </div>
 </div>
 
 <!-- Toasts -->
@@ -1759,7 +1753,10 @@ function renderCommandeDetail(statut) {
       ${glines.map(l=>renderReceptionLine(l,ro)).join('')}
     </div>`;
   });
-  if (!ro) html+=`<div style="padding:0 12px 12px"><button class="btn btn-secondary btn-sm" onclick="openAddLinePanel()">+ Ajouter un produit</button></div>`;
+  if (!ro) html+=`<div style="padding:0 12px 12px;display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-secondary btn-sm" onclick="openAddLinePanel()">+ Ajouter un produit</button>
+    <label class="btn btn-secondary btn-sm" style="cursor:pointer">📸 Scanner la facture<input type="file" accept="image/*" capture="environment" style="display:none" onchange="scanInvoice(this)"></label>
+  </div>`;
   document.getElementById('detail-body').innerHTML=html;
   const footer=document.getElementById('detail-footer');
   if (ro) {
@@ -1857,6 +1854,61 @@ async function confirmAddLine() {
   } catch(e) {
     toast('Erreur ajout produit','error');
     if (btn) { btn.disabled=false; btn.textContent='Ajouter'; }
+  }
+}
+
+function _imageToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = e => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const MAX = 1600;
+        const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.naturalWidth * scale);
+        canvas.height = Math.round(img.naturalHeight * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function scanInvoice(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  if (!STATE.currentCommandeLines.length) { toast('Aucun produit dans cette commande', 'error'); return; }
+  toast('Analyse de la facture en cours…', 'info');
+  try {
+    const base64 = await _imageToBase64(file);
+    const lines = STATE.currentCommandeLines.map(l => ({
+      produit_id: l.produit_id,
+      nom: l.produits?.nom || '',
+      quantite_commandee: l.quantite_commandee,
+    }));
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(`${sbUrl}/functions/v1/scan-facture`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lines, image: base64, media_type: 'image/jpeg' }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || `Erreur ${res.status}`);
+    (json.results || []).forEach(r => {
+      const l = STATE.currentCommandeLines.find(l => l.produit_id === r.produit_id);
+      if (l) l._recue = r.quantite_recue;
+    });
+    renderCommandeDetail(STATE.currentCommandeStatut);
+    toast('Facture analysée — vérifie les quantités avant de valider', 'success');
+  } catch(e) {
+    toast('Erreur analyse facture : ' + e.message, 'error');
   }
 }
 
@@ -2808,8 +2860,6 @@ let _scannerCallback = null;
 function openScanner(onResult) {
   _scannerCallback = onResult;
   document.getElementById('scanner-modal').style.display = 'flex';
-  document.getElementById('scanner-manual-wrap').style.display = 'none';
-  document.getElementById('scanner-manual-input').value = '';
   const torchBtn = document.getElementById('scanner-torch-btn');
   torchBtn.style.display = 'none';
   torchBtn.dataset.on = '0';
@@ -2856,18 +2906,6 @@ function toggleTorch() {
     btn.dataset.on = on ? '0' : '1';
     btn.textContent = on ? '🔦' : '💡';
   } catch(e) {}
-}
-
-function _toggleManualBarcode() {
-  const wrap = document.getElementById('scanner-manual-wrap');
-  wrap.style.display = wrap.style.display === 'none' ? 'flex' : 'none';
-  if (wrap.style.display === 'flex') document.getElementById('scanner-manual-input').focus();
-}
-
-function _confirmManualBarcode() {
-  const val = document.getElementById('scanner-manual-input').value.trim();
-  if (!val) return;
-  _onScanSuccess(val);
 }
 
 function _onScanSuccess(text) {
