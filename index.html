@@ -1227,10 +1227,18 @@ datalist{display:none;}
   <div id="crop-container" style="position:relative;display:inline-block;touch-action:none;max-width:100%;max-height:calc(100dvh - 150px)">
     <img id="crop-img" style="display:block;max-width:100%;max-height:calc(100dvh - 150px);user-select:none;-webkit-user-select:none;pointer-events:none">
     <div id="crop-box" style="position:absolute;border:2px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,0.55);touch-action:none">
-      <div data-corner="tl" style="position:absolute;top:-11px;left:-11px;width:22px;height:22px;background:#fff;border-radius:4px;touch-action:none"></div>
-      <div data-corner="tr" style="position:absolute;top:-11px;right:-11px;width:22px;height:22px;background:#fff;border-radius:4px;touch-action:none"></div>
-      <div data-corner="bl" style="position:absolute;bottom:-11px;left:-11px;width:22px;height:22px;background:#fff;border-radius:4px;touch-action:none"></div>
-      <div data-corner="br" style="position:absolute;bottom:-11px;right:-11px;width:22px;height:22px;background:#fff;border-radius:4px;touch-action:none"></div>
+      <div data-corner="tl" style="position:absolute;top:-22px;left:-22px;width:44px;height:44px;touch-action:none;display:flex;align-items:center;justify-content:center">
+        <div style="width:18px;height:18px;background:#fff;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.5);pointer-events:none"></div>
+      </div>
+      <div data-corner="tr" style="position:absolute;top:-22px;right:-22px;width:44px;height:44px;touch-action:none;display:flex;align-items:center;justify-content:center">
+        <div style="width:18px;height:18px;background:#fff;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.5);pointer-events:none"></div>
+      </div>
+      <div data-corner="bl" style="position:absolute;bottom:-22px;left:-22px;width:44px;height:44px;touch-action:none;display:flex;align-items:center;justify-content:center">
+        <div style="width:18px;height:18px;background:#fff;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.5);pointer-events:none"></div>
+      </div>
+      <div data-corner="br" style="position:absolute;bottom:-22px;right:-22px;width:44px;height:44px;touch-action:none;display:flex;align-items:center;justify-content:center">
+        <div style="width:18px;height:18px;background:#fff;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.5);pointer-events:none"></div>
+      </div>
     </div>
   </div>
   <div style="display:flex;gap:10px;margin-top:16px;width:100%;max-width:480px">
@@ -1295,7 +1303,7 @@ const STATE = {
   view: 'stock',
   produits: [], fournisseurs: [], commandes: [], config: {},
   activeCategory: 'tous',
-  currentCommandeId: null, currentCommandeLines: [], currentCommandeStatut: null,
+  currentCommandeId: null, currentCommandeLines: [], currentCommandeStatut: null, currentCommandeFournisseurId: null,
   editingFournisseurId: null,
   prepFournisseurId: null,
   prepLines: [],
@@ -1893,20 +1901,41 @@ async function scanInvoice(input) {
       nom: l.produits?.nom || '',
       quantite_commandee: l.quantite_commandee,
     }));
+    const dejaIds = STATE.currentCommandeLines.map(l => l.produit_id);
+    const catalogue = STATE.produits
+      .filter(p => p.actif && p.fournisseur_id === STATE.currentCommandeFournisseurId && !dejaIds.includes(p.id))
+      .map(p => ({ id: p.id, nom: p.nom }));
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(`${sbUrl}/functions/v1/scan-facture`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lines, image: base64, media_type: 'image/jpeg' }),
+      body: JSON.stringify({ lines, catalogue, image: base64, media_type: 'image/jpeg' }),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || `Erreur ${res.status}`);
-    (json.results || []).forEach(r => {
+    let nbAjoutes = 0;
+    for (const r of (json.results || [])) {
       const l = STATE.currentCommandeLines.find(l => l.produit_id === r.produit_id);
-      if (l) l._recue = r.quantite_recue;
-    });
+      if (l) {
+        l._recue = r.quantite_recue;
+        continue;
+      }
+      const p = STATE.produits.find(p => p.id === r.produit_id);
+      if (!p) continue;
+      try {
+        const { data, error } = await sb.from('commande_lignes')
+          .insert({ commande_id: STATE.currentCommandeId, produit_id: p.id, quantite_commandee: r.quantite_recue, quantite_recue: 0 })
+          .select().single();
+        if (error) throw error;
+        STATE.currentCommandeLines.push({
+          ...data, _recue: r.quantite_recue,
+          produits: { nom: p.nom, unite: p.unite, fournisseur_id: p.fournisseur_id, qte_par_unite_commande: p.qte_par_unite_commande },
+        });
+        nbAjoutes++;
+      } catch(e) {}
+    }
     renderCommandeDetail(STATE.currentCommandeStatut);
-    toast('Facture analysée — vérifie les quantités avant de valider', 'success');
+    toast(`Facture analysée${nbAjoutes ? ` — ${nbAjoutes} produit(s) ajouté(s) automatiquement` : ''} — vérifie les quantités avant de valider`, 'success');
   } catch(e) {
     toast('Erreur analyse facture : ' + e.message, 'error');
   }
@@ -2958,46 +2987,58 @@ function _initCropDrag() {
 
   document.addEventListener('pointermove', e => {
     if (!_cropDrag) return;
-    const img = document.getElementById('crop-img');
-    const iw = img.offsetWidth, ih = img.offsetHeight;
-    const dx = e.clientX - _cropDrag.sx, dy = e.clientY - _cropDrag.sy;
-    const {bx, by, bs} = _cropDrag;
-    const MIN = 60;
+    e.preventDefault();
+    _cropDrag.cx = e.clientX; _cropDrag.cy = e.clientY;
+    if (_cropDrag.raf) return;
+    _cropDrag.raf = requestAnimationFrame(_applyCropDragFrame);
+  }, {passive:false});
 
-    if (_cropDrag.type === 'move') {
-      _cropBox.x = Math.max(0, Math.min(iw - bs, bx + dx));
-      _cropBox.y = Math.max(0, Math.min(ih - bs, by + dy));
-    } else {
-      let ns = bs, nx = bx, ny = by;
-      // d positif = agrandir, d négatif = rétrécir
-      // chaque coin a sa propre direction "sortante"
-      let d;
-      if      (_cropDrag.type === 'br') d = Math.max(dx, dy);   // droite ou bas = agrandir
-      else if (_cropDrag.type === 'tl') d = Math.max(-dx, -dy); // gauche ou haut = agrandir
-      else if (_cropDrag.type === 'tr') d = Math.max(dx, -dy);  // droite ou haut = agrandir
-      else                              d = Math.max(-dx, dy);   // bl: gauche ou bas = agrandir
-
-      if (_cropDrag.type === 'br') {
-        ns = Math.max(MIN, Math.min(bs + d, iw - bx, ih - by));
-      } else if (_cropDrag.type === 'tl') {
-        ns = Math.max(MIN, Math.min(bs + d, bx + bs, by + bs));
-        nx = bx + bs - ns; ny = by + bs - ns;
-        if (nx < 0) { ns += nx; nx = 0; ny = by + bs - ns; }
-        if (ny < 0) { ns += ny; ny = 0; nx = bx + bs - ns; }
-      } else if (_cropDrag.type === 'tr') {
-        ns = Math.max(MIN, Math.min(bs + d, iw - bx, by + bs));
-        ny = by + bs - ns; if (ny < 0) { ns += ny; ny = 0; }
-      } else { // bl
-        ns = Math.max(MIN, Math.min(bs + d, bx + bs, ih - by));
-        nx = bx + bs - ns; if (nx < 0) { ns += nx; nx = 0; }
-      }
-      ns = Math.min(ns, iw - nx, ih - ny);
-      _cropBox = {x:nx, y:ny, size:ns};
-    }
-    _applyCropBox();
+  document.addEventListener('pointerup', () => {
+    if (_cropDrag && _cropDrag.raf) cancelAnimationFrame(_cropDrag.raf);
+    _cropDrag = null;
   });
+}
 
-  document.addEventListener('pointerup', () => { _cropDrag = null; });
+function _applyCropDragFrame() {
+  if (!_cropDrag) return;
+  _cropDrag.raf = null;
+  const img = document.getElementById('crop-img');
+  const iw = img.offsetWidth, ih = img.offsetHeight;
+  const dx = _cropDrag.cx - _cropDrag.sx, dy = _cropDrag.cy - _cropDrag.sy;
+  const {bx, by, bs} = _cropDrag;
+  const MIN = 60;
+
+  if (_cropDrag.type === 'move') {
+    _cropBox.x = Math.max(0, Math.min(iw - bs, bx + dx));
+    _cropBox.y = Math.max(0, Math.min(ih - bs, by + dy));
+  } else {
+    let ns = bs, nx = bx, ny = by;
+    // d positif = agrandir, d négatif = rétrécir
+    // chaque coin a sa propre direction "sortante"
+    let d;
+    if      (_cropDrag.type === 'br') d = Math.max(dx, dy);   // droite ou bas = agrandir
+    else if (_cropDrag.type === 'tl') d = Math.max(-dx, -dy); // gauche ou haut = agrandir
+    else if (_cropDrag.type === 'tr') d = Math.max(dx, -dy);  // droite ou haut = agrandir
+    else                              d = Math.max(-dx, dy);   // bl: gauche ou bas = agrandir
+
+    if (_cropDrag.type === 'br') {
+      ns = Math.max(MIN, Math.min(bs + d, iw - bx, ih - by));
+    } else if (_cropDrag.type === 'tl') {
+      ns = Math.max(MIN, Math.min(bs + d, bx + bs, by + bs));
+      nx = bx + bs - ns; ny = by + bs - ns;
+      if (nx < 0) { ns += nx; nx = 0; ny = by + bs - ns; }
+      if (ny < 0) { ns += ny; ny = 0; nx = bx + bs - ns; }
+    } else if (_cropDrag.type === 'tr') {
+      ns = Math.max(MIN, Math.min(bs + d, iw - bx, by + bs));
+      ny = by + bs - ns; if (ny < 0) { ns += ny; ny = 0; }
+    } else { // bl
+      ns = Math.max(MIN, Math.min(bs + d, bx + bs, ih - by));
+      nx = bx + bs - ns; if (nx < 0) { ns += nx; nx = 0; }
+    }
+    ns = Math.min(ns, iw - nx, ih - ny);
+    _cropBox = {x:nx, y:ny, size:ns};
+  }
+  _applyCropBox();
 }
 
 async function uploadProductImage(file, productId) {
@@ -3241,10 +3282,9 @@ async function testTelegram() {
       Object.entries(groups).forEach(([fid,prods])=>{
         const f=STATE.fournisseurs.find(f=>f.id===fid);
         msg+=f?`${f.nom.toUpperCase()}${f.contact?' (contact : '+f.contact+')':''}\n`:'SANS FOURNISSEUR\n';
-        prods.forEach(p=>{msg+=`- ${p.nom} : ${Math.max(1,p.stock_max-p.stock_actuel)} ${p.unite}\n`;});
+        prods.forEach(p=>{msg+=`- ${p.nom} : ${Math.max(1,p.stock_max-p.stock_actuel)}\n`;});
         msg+='\n';
       });
-      msg+=`Total : ${crits.length} produit${crits.length>1?'s':''} à commander`;
     }
     await telegramSend(token,chatId,msg);
     toast('Message test envoyé sur Telegram !','success');
@@ -3263,22 +3303,6 @@ async function telegramSend(token,chatId,msg) {
     const data=await res.json();
     if (!data.ok) throw new Error(data.description||'Erreur Telegram');
   }
-}
-
-async function sendTelegramOrder(cmd,crits) {
-  const token=STATE.config.telegram_token, chatId=STATE.config.telegram_chat_id;
-  if (!token||!chatId) return;
-  const groups={};
-  crits.forEach(p=>{const fid=p.fournisseur_id||'__none__';if(!groups[fid])groups[fid]=[];groups[fid].push(p);});
-  let msg=`Commande du ${formatDate(cmd.date)}\n\n`;
-  Object.entries(groups).forEach(([fid,prods])=>{
-    const f=STATE.fournisseurs.find(f=>f.id===fid);
-    msg+=f?`${f.nom.toUpperCase()}${f.contact?' (contact : '+f.contact+')':''}\n`:'SANS FOURNISSEUR\n';
-    prods.forEach(p=>{msg+=`- ${p.nom} : ${Math.max(1,p.stock_max-p.stock_actuel)} ${p.unite}\n`;});
-    msg+='\n';
-  });
-  msg+=`Total : ${crits.length} produit${crits.length>1?'s':''} a commander`;
-  await telegramSend(token,chatId,msg);
 }
 
 function exportCSV() {
